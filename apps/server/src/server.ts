@@ -732,7 +732,6 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   layerProviderInstallationRefresh,
   ProviderInstallation.layer,
   ReplayMarkers.layer,
-  Layer.effectDiscard(ProjectSettingsOverrideSweep.sweep),
 ).pipe(
   Layer.provideMerge(layerOrchestrationApplication),
   Layer.provideMerge(RuntimeLayer.layerEventInfrastructure),
@@ -1370,6 +1369,9 @@ const layerMakeServer = Layer.unwrap(
     }).pipe(
       Layer.tap(() => Deferred.succeed(routesReady, undefined).pipe(Effect.orDie)),
     );
+    const layerProjectSettingsOverrideSweep = Layer.effectDiscard(
+      ServerActivation.forkParked(ProjectSettingsOverrideSweep.sweep.pipe(Effect.ignore)),
+    );
     const layerServerApplication = Layer.mergeAll(
       layerRoutes,
       layerHttpListening,
@@ -1377,6 +1379,7 @@ const layerMakeServer = Layer.unwrap(
       layerRuntimeState.pipe(Layer.provide(layerLauncher)),
       layerTailscaleServe,
       layerCloudDesiredLinkReconcile,
+      layerProjectSettingsOverrideSweep,
       HeapSnapshot.layer,
     );
 
