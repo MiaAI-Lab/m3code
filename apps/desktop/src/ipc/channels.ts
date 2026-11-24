@@ -150,3 +150,6 @@ export const COMPLETE_LEGACY_LOCAL_STORAGE_CHANNEL = "desktop:complete-legacy-lo
 export const RESTART_AUDIO_SERVICE_CHANNEL = "desktop:restart-audio-service";
 
 export const START_FILE_DRAG_CHANNEL = "desktop:start-file-drag";
+
+export const UNINSTALL_GET_PLAN_CHANNEL = "desktop:uninstall-get-plan";
+export const UNINSTALL_RUN_CHANNEL = "desktop:uninstall-run";
