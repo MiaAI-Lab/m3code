@@ -18,7 +18,7 @@ const APP_BUNDLE_ID = isDevelopment
   ? `com.t3tools.t3code.dev.${devBundleIdSuffix || "local"}`
   : "com.t3tools.t3code";
 const APP_PROTOCOL_SCHEMES = isDevelopment ? ["t3code-dev"] : ["t3code"];
-const LAUNCHER_VERSION = 20;
+const LAUNCHER_VERSION = 21;
 const developmentMacIconPngPath = NodePath.join(
   repoRoot,
   "assets",
@@ -154,7 +154,7 @@ function writeDevelopmentEnvironmentScript() {
 export function writeDevelopmentLauncherScript(targetBinaryPath, electronBinaryPath) {
   const script = makeDevelopmentLauncherScript({
     electronBinaryPath,
-    mainEntryPath: NodePath.join(desktopDir, "dist-electron", "main.cjs"),
+    mainEntryPath: NodePath.join(desktopDir, "dist-electron", "boot.cjs"),
     desktopRoot: desktopDir,
     environmentFilePath: developmentEnvironmentFilePath,
   });

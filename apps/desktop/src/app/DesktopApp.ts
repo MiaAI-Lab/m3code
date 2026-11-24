@@ -291,7 +291,8 @@ const bootstrap = Effect.fn("desktop.bootstrap")(function* (backendStarted: bool
     return;
   }
 
-  yield* snapShot.initialize;
+  // Snapshot shortcut setup spawns native helpers; don't delay window creation for it.
+  yield* Effect.forkScoped(snapShot.initialize);
   // Only the user's own login shell PATH shows every t3 a new terminal runs; a fresh install has
   // no cached one. Without it, the command is left to Settings.
   const installCli = (yield* DesktopCliCommand.DesktopCliCommand).installOnFirstLaunch;
@@ -318,11 +319,7 @@ const bootstrap = Effect.fn("desktop.bootstrap")(function* (backendStarted: bool
 
   const primaryBackend = yield* (yield* DesktopBackendPool.DesktopBackendPool).primary;
   const config = yield* primaryBackend.currentConfig;
-  if (
-    !environment.isDevelopment &&
-    Option.isSome(config) &&
-    Option.isNone(config.value.preflightFailure)
-  ) {
+  if (Option.isSome(config) && Option.isNone(config.value.preflightFailure)) {
     yield* desktopWindow.ensureMain;
   }
   yield* startAppActivation;

@@ -335,6 +335,7 @@ export default defineConfig(({ command }) => {
       bundledDev ? bundledDevStableNamesPlugin() : undefined,
     ],
     optimizeDeps: {
+      entries: ["./index.html", "./src/main.tsx", "./src/routes/**/*.tsx"],
       include: [
         "@pierre/diffs",
         "@pierre/diffs/edit",
