@@ -1,0 +1,104 @@
+name: Upstream sync
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: https://github.com/pingdotgg/t3code.git
+  UPSTREAM_BRANCH: main
+  TARGET_BRANCH: main
+
+jobs:
+  sync:
+    if: github.repository != 'pingdotgg/t3code'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Merge upstream
+        id: merge
+        run: |
+          git config user.name "upstream-sync"
+          git config user.email "upstream-sync@users.noreply.github.com"
+          git config rerere.enabled true
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+          if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
+            echo "result=uptodate" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git merge --no-edit -m "Merge upstream/$UPSTREAM_BRANCH" "upstream/$UPSTREAM_BRANCH"; then
+            echo "result=merged" >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts.txt"
+            git merge --abort
+            echo "result=conflict" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fork invariants
+        if: steps.merge.outputs.result == 'merged'
+        id: guard
+        run: |
+          if scripts/check-fork-invariants.sh > "$RUNNER_TEMP/guard.txt" 2>&1; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up dependencies
+        if: steps.guard.outputs.ok == 'true'
+        uses: ./.github/actions/setup-ci-deps
+
+      - name: Typecheck and test fork code
+        if: steps.guard.outputs.ok == 'true'
+        id: verify
+        run: |
+          {
+            vp run typecheck &&
+            (cd packages/provider-omp && vp run test) &&
+            (cd packages/provider-noname && vp run test) &&
+            (cd apps/server && vp test run src/inference)
+          } > "$RUNNER_TEMP/guard.txt" 2>&1 \
+            && echo "ok=true" >> "$GITHUB_OUTPUT" \
+            || { tail -60 "$RUNNER_TEMP/guard.txt" > "$RUNNER_TEMP/tail.txt"; mv "$RUNNER_TEMP/tail.txt" "$RUNNER_TEMP/guard.txt"; echo "ok=false" >> "$GITHUB_OUTPUT"; }
+
+      - name: Push merge
+        if: steps.verify.outputs.ok == 'true'
+        run: git push origin "HEAD:$TARGET_BRANCH"
+
+      - name: Push merge for inspection
+        if: steps.merge.outputs.result == 'merged' && steps.verify.outputs.ok != 'true'
+        run: git push --force origin HEAD:refs/heads/sync/upstream
+
+      - name: Report problem
+        if: steps.merge.outputs.result == 'conflict' || (steps.merge.outputs.result == 'merged' && steps.verify.outputs.ok != 'true')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.merge.outputs.result }}
+        run: |
+          if [ "$RESULT" = conflict ]; then
+            title="Upstream sync: merge conflicts"
+            detail="Conflicting files:"$'\n\n```\n'"$(cat "$RUNNER_TEMP/conflicts.txt")"$'\n```'
+          else
+            title="Upstream sync: checks failed"
+            detail="Merge was clean but checks failed. Nothing was pushed to $TARGET_BRANCH; the merge is on branch sync/upstream:"$'\n\n```\n'"$(cat "$RUNNER_TEMP/guard.txt")"$'\n```'
+          fi
+          body="$detail"$'\n\n'"Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"$'\n\n'"Resolve locally: \`git fetch upstream && git merge upstream/$UPSTREAM_BRANCH\`"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
