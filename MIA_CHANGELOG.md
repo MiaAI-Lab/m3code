@@ -5,6 +5,20 @@ changes on top of upstream [T3 Code](https://github.com/pingdotgg/t3code). It is
 `b90e554e0` (2026-11-06). Newest first. Every change to the client–server protocol is additive, so
 the official T3 Code mobile app keeps working against this fork's server.
 
+## 2026-11-24: Antigravity CLI update/path fixes, direct MCP wizard, and self-hosted M3 Server
+
+- **Antigravity CLI settings & one-click update**: allowed custom `binaryPath` overrides to point at
+  any executable wrapper/name, added `antigravity` alongside `agy` in PATH fallback discovery, and
+  wired `ProviderMaintenanceRunner.updateProvider` for `antigravity` directly to
+  `AntigravityInstallation.start` so one-click updates in Settings work.
+- **Direct MCP wizard ("Use M3 Code in another app (MCP)")**: removed the hard `T3 Connect`
+  block in `UseInAnotherAppDialog.tsx` and added `directMcpUrl` support to `resolveMcpGate` so
+  local, LAN, and WireGuard environments open the MCP setup wizard directly without Clerk/T3 Connect.
+- **Self-hosted M3 Server (`apps/m3-server`)**: added a standalone, zero-Clerk, zero-tracker Node +
+  `node:sqlite` control-plane/discovery server (`npm run start:m3-server` / `node apps/m3-server/src/bin.ts`)
+  supporting environment registration, online status, single-use pairing codes, and MCP endpoint
+  discovery.
+
 ## 2026-11-24: Open PRs merged (#4, #5, #6, #7, #8, #9) and the fallout of #3
 
 - **Merged**: #9 (inference gateway retry, usage meter and typecheck fixes), #6 (Antigravity

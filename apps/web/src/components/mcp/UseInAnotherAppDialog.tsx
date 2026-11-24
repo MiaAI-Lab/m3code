@@ -42,6 +42,7 @@ import { readLocalApi } from "~/localApi";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import {
   type EnvironmentPresentation,
+  useEnvironmentHttpBaseUrl,
   useEnvironmentIdentities,
   usePrimaryEnvironmentId,
 } from "~/state/environments";
@@ -90,19 +91,13 @@ function UseInAnotherAppDialog({ requested }: { readonly requested: EnvironmentI
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : close())}>
       <WizardPopup>
-        {environment !== null && hasCloudPublicConfig() ? (
+        {environment !== null ? (
           <Wizard key={environment.environmentId} environment={environment} title={title} />
         ) : (
           <>
             <WizardHeader title={title} />
             <WizardPanel>
-              <GateMessage
-                title={
-                  environment === null
-                    ? gt("Connect to an environment first.")
-                    : gt("T3 Connect is not available in this build.")
-                }
-              />
+              <GateMessage title={gt("Connect to an environment first.")} />
             </WizardPanel>
           </>
         )}
@@ -266,6 +261,15 @@ function useGate(environment: EnvironmentPresentation) {
   const thisMachine =
     environmentId === usePrimaryEnvironmentId() ||
     isDesktopLocalConnectionTarget(environment.entry.target);
+  const httpBaseUrl = useEnvironmentHttpBaseUrl(environmentId);
+  const directMcpUrl = !hasCloudPublicConfig()
+    ? (() => {
+        const base =
+          httpBaseUrl ??
+          (thisMachine && typeof window !== "undefined" ? window.location.origin : null);
+        return base ? `${base.replace(/\/+$/, "")}/mcp` : null;
+      })()
+    : null;
   const discovery = useAtomValue(relayEnvironmentDiscovery.stateValueAtom);
   const refreshDiscovery = useAtomCommand(relayEnvironmentDiscovery.refresh, {
     reportFailure: false,
@@ -298,6 +302,7 @@ function useGate(environment: EnvironmentPresentation) {
       linkState,
       linkStateError: controller.linkState.error,
       thisMachine,
+      directMcpUrl,
       relay:
         !discovery.refreshing && (discovery.offline || Option.isSome(discovery.error))
           ? { status: "failed" }

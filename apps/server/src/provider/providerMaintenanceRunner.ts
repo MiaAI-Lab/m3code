@@ -15,6 +15,7 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
@@ -23,6 +24,7 @@ import { HttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import * as NodeUtil from "node:util";
 
+import * as AntigravityInstallation from "./AntigravityInstallation.ts";
 import * as ModelManifest from "./ModelManifest.ts";
 import * as ProviderInstallationGate from "./ProviderInstallationGate.ts";
 import * as ProviderRegistry from "./ProviderRegistry.ts";
@@ -301,6 +303,9 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
   const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
   const serviceScope = yield* Effect.scope;
   const installationGate = yield* ProviderInstallationGate.ProviderInstallationGate;
+  const antigravityInstallation = yield* Effect.serviceOption(
+    AntigravityInstallation.AntigravityInstallation,
+  );
   const runMaintenanceCommand = (
     update: ProviderMaintenanceCommandAction,
     onProgress: (line: string) => Effect.Effect<void>,
@@ -407,6 +412,61 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
         : (target.instanceId ?? defaultInstanceIdForDriver(provider));
     const targetVersion = typeof target === "string" ? undefined : target.targetVersion;
     const targetKey = `instance:${instanceId}`;
+    if (
+      provider === ProviderDriverKind.make("antigravity") &&
+      Option.isSome(antigravityInstallation)
+    ) {
+      const startedAt = yield* nowIso;
+      yield* providerRegistry.setProviderMaintenanceActionState({
+        instanceId,
+        action: "update",
+        state: makeUpdateState({
+          status: "running",
+          startedAt,
+          finishedAt: null,
+          message: "Updating Antigravity CLI runtime…",
+        }),
+        targetVersion,
+      });
+      const install = antigravityInstallation.value;
+      const started = yield* install.start.pipe(
+        Effect.mapError(
+          (cause) =>
+            new ServerProviderUpdateError({
+              provider,
+              reason: cause.message,
+            }),
+        ),
+      );
+      const isInstalling = (phase: string) =>
+        phase === "downloading" || phase === "extracting" || phase === "verifying";
+      const settledState = isInstalling(started.phase)
+        ? yield* install.changes.pipe(
+            Stream.filter((next) => !isInstalling(next.phase)),
+            Stream.runHead,
+            Effect.map(Option.getOrUndefined),
+          )
+        : started;
+      const finalState = settledState ?? (yield* install.state);
+      const ok = finalState.phase === "succeeded" || finalState.phase === "idle";
+      yield* providerRegistry.refreshInstance(instanceId).pipe(Effect.ignore);
+      const providers = yield* providerRegistry.setProviderMaintenanceActionState({
+        instanceId,
+        action: "update",
+        state: makeUpdateState({
+          status: ok ? "succeeded" : "failed",
+          startedAt,
+          finishedAt: yield* nowIso,
+          message:
+            finalState.message ??
+            (ok
+              ? `Antigravity CLI ${finalState.installedVersion ?? ""} is up to date.`.trim()
+              : "Antigravity CLI update failed."),
+        }),
+        targetVersion,
+      });
+      return { providers };
+    }
     const capabilities = yield* providerRegistry.getProviderMaintenanceCapabilitiesForInstance(
       instanceId,
       provider,

@@ -995,8 +995,10 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("Antigravity inst
           executablePath: alias,
           source: "path",
         });
-        expect(yield* installation.resolve(other).pipe(Effect.flip)).toMatchObject({
-          operation: "resolve",
+        // An explicit binaryPath may point at a wrapper script; PATH lookup still wants agy.
+        expect(yield* installation.resolve(other)).toMatchObject({
+          executablePath: other,
+          source: "override",
         });
 
         // Version-manager shims dispatch by their invoked name, so the shim path is what runs.
