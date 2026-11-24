@@ -75,11 +75,20 @@ export const resolveMtlsServerConfig = Effect.fn("MtlsServer.resolveMtlsServerCo
         const caPem = NodeFS.readFileSync(input.caPath!, "utf8");
         const serverX509 = new NodeCrypto.X509Certificate(certPem);
         const caX509 = new NodeCrypto.X509Certificate(caPem);
+        const privateKey = NodeCrypto.createPrivateKey(keyPem);
+        const derivedPub = NodeCrypto.createPublicKey(privateKey).export({
+          type: "spki",
+          format: "der",
+        });
+        const certPub = serverX509.publicKey.export({ type: "spki", format: "der" });
+        if (!derivedPub.equals(certPub)) {
+          throw new Error("--tls-key does not match the public key in --tls-cert.");
+        }
         return { certPem, keyPem, caPem, serverX509, caX509 };
       },
       catch: (cause) =>
         new MtlsConfigError({
-          detail: "Failed to read or parse --tls-cert, --tls-key, or --tls-ca.",
+          detail: "Failed to read, parse, or match --tls-cert, --tls-key, and --tls-ca.",
           cause,
         }),
     });
@@ -158,20 +167,23 @@ export function createMtlsHttpsServer(
   server.on("secureConnection", (tlsSocket: NodeTls.TLSSocket) => {
     rejectIfRevoked(tlsSocket);
   });
-  // Also enforce on keep-alive HTTP requests and WebSocket upgrades so revoking a
-  // client certificate terminates already-open connections immediately.
-  server.prependListener("request", (req, res) => {
-    const tlsSocket = req.socket as NodeTls.TLSSocket;
-    if (typeof tlsSocket.getPeerCertificate === "function" && rejectIfRevoked(tlsSocket)) {
-      res.destroy();
+  // Intercept request/upgrade dispatch before any HTTP or WebSocket listener runs so a
+  // revoked client on an already-open keep-alive socket can never trigger side effects.
+  const originalEmit = server.emit.bind(server);
+  server.emit = ((event: string | symbol, ...args: Array<unknown>) => {
+    if (event === "request" || event === "upgrade") {
+      const req = args[0] as { readonly socket?: NodeTls.TLSSocket } | undefined;
+      const tlsSocket = req?.socket;
+      if (tlsSocket && typeof tlsSocket.getPeerCertificate === "function") {
+        if (rejectIfRevoked(tlsSocket)) {
+          const second = args[1] as { destroy?: () => void } | undefined;
+          second?.destroy?.();
+          return false;
+        }
+      }
     }
-  });
-  server.prependListener("upgrade", (req, socket) => {
-    const tlsSocket = req.socket as NodeTls.TLSSocket;
-    if (typeof tlsSocket.getPeerCertificate === "function" && rejectIfRevoked(tlsSocket)) {
-      socket.destroy();
-    }
-  });
+    return originalEmit(event as string, ...args);
+  }) as typeof server.emit;
   return server;
 }
 

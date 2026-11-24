@@ -396,10 +396,21 @@ function generateEcKeyPair(): {
   return { privateKey, publicKey, privateKeyPem };
 }
 
-function collectDefaultServerSans(extraSans?: ReadonlyArray<string>): ReadonlyArray<string> {
+const VALID_DNS_SAN =
+  /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+
+function isValidSanEntry(entry: string): boolean {
+  if (entry.length === 0 || entry.length > 253) return false;
+  if (NodeNet.isIP(entry) !== 0) return true;
+  return VALID_DNS_SAN.test(entry);
+}
+
+const collectDefaultServerSans = Effect.fn("MtlsPki.collectDefaultServerSans")(function* (
+  extraSans?: ReadonlyArray<string>,
+) {
   const sans = new Set<string>(["localhost", "127.0.0.1", "::1"]);
   const hostname = NodeOS.hostname().trim();
-  if (hostname.length > 0 && /^[a-zA-Z0-9.-]+$/.test(hostname)) {
+  if (isValidSanEntry(hostname)) {
     sans.add(hostname);
   }
   const interfaces = NodeOS.networkInterfaces();
@@ -413,12 +424,19 @@ function collectDefaultServerSans(extraSans?: ReadonlyArray<string>): ReadonlyAr
   }
   for (const raw of extraSans ?? []) {
     const trimmed = raw.trim().replace(/^\[(.*)\]$/, "$1");
-    if (trimmed.length > 0 && trimmed !== "0.0.0.0" && trimmed !== "::") {
-      sans.add(trimmed);
+    if (trimmed.length === 0 || trimmed === "0.0.0.0" || trimmed === "::") {
+      continue;
     }
+    if (!isValidSanEntry(trimmed)) {
+      return yield* new MtlsPkiError({
+        operation: "validate-san",
+        detail: `Invalid SAN entry "${raw}"; expected an IP address or RFC 1123 DNS hostname.`,
+      });
+    }
+    sans.add(trimmed);
   }
   return [...sans].toSorted();
-}
+});
 
 function parseCertificateSans(x509: NodeCrypto.X509Certificate): ReadonlyArray<string> {
   const raw = x509.subjectAltName;
@@ -598,7 +616,7 @@ export const ensureLocalMtlsPki = Effect.fn("MtlsPki.ensureLocalMtlsPki")(functi
     );
   }
 
-  const desiredSans = collectDefaultServerSans(input.extraSans);
+  const desiredSans = yield* collectDefaultServerSans(input.extraSans);
   const reusableServer = input.forceRegenerate
     ? null
     : tryReadReusableServerCert({
@@ -870,11 +888,15 @@ export function isMtlsClientRevoked(
   },
 ): boolean {
   const paths = resolveMtlsPaths(mtlsDir);
+  if (!NodeFS.existsSync(paths.registryPath)) {
+    return false;
+  }
   let registry: MtlsRegistryFile;
   try {
     registry = readRegistrySync(paths.registryPath);
   } catch {
-    return false;
+    // Fail closed if an existing revocation registry cannot be read or parsed.
+    return true;
   }
   const peerSerial = peer.serialNumber ? normalizeCertSerial(peer.serialNumber) : "";
   const peerFingerprint = peer.fingerprint256 ? normalizeCertFingerprint(peer.fingerprint256) : "";

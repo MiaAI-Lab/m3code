@@ -179,12 +179,14 @@ describe("MtlsServer", () => {
             });
 
             const revokedPeers: Array<string> = [];
+            let requestHandlerCalls = 0;
             const server = createMtlsHttpsServer(resolved, {
               onRevokedClient: (peer) => {
                 if (peer.fingerprint256) revokedPeers.push(peer.fingerprint256);
               },
             });
             server.on("request", (_req, res) => {
+              requestHandlerCalls += 1;
               res.writeHead(200, { "content-type": "text/plain" }).end("ok");
             });
 
@@ -262,7 +264,22 @@ describe("MtlsServer", () => {
             });
             expect(cliResponse).toEqual({ status: 200, text: "ok" });
 
-            // 5. Revoking the trusted client immediately drops subsequent connections.
+            // 5. Presenting the server certificate (EKU=serverAuth only) as a client cert is rejected.
+            const serverCertAsClientFailed = yield* Effect.tryPromise({
+              try: () =>
+                httpsGet({
+                  port,
+                  ca: validClient.caCertPem,
+                  cert: String(resolved.httpsOptions.cert),
+                  key: String(resolved.httpsOptions.key),
+                }),
+              catch: (cause) => new TlsRequestError({ cause }),
+            }).pipe(Effect.flip);
+            expect(serverCertAsClientFailed).toBeDefined();
+
+            // 6. Revoking the trusted client immediately drops subsequent connections
+            //    and prevents downstream request handlers from executing on keep-alive sockets.
+            const callsBeforeRevoke = requestHandlerCalls;
             yield* revokeMtlsClientCertificate({ mtlsDir, identifier: validClient.record.id });
             const revokedFailed = yield* Effect.tryPromise({
               try: () =>
@@ -276,22 +293,60 @@ describe("MtlsServer", () => {
             }).pipe(Effect.flip);
             expect(revokedFailed).toBeDefined();
             expect(revokedPeers).toContain(validClient.record.fingerprint256);
+            expect(requestHandlerCalls).toBe(callsBeforeRevoke);
+
+            // 7. A corrupted clients.json registry fails closed instead of allowing connections.
+            const secondClient = yield* issueMtlsClientCertificate({
+              mtlsDir,
+              label: "second-device",
+            });
+            NodeFS.writeFileSync(NodePath.join(mtlsDir, "clients.json"), "{corrupted-json", "utf8");
+            const failClosed = yield* Effect.tryPromise({
+              try: () =>
+                httpsGet({
+                  port,
+                  ca: secondClient.caCertPem,
+                  cert: secondClient.certPem,
+                  key: secondClient.keyPem,
+                }),
+              catch: (cause) => new TlsRequestError({ cause }),
+            }).pipe(Effect.flip);
+            expect(failClosed).toBeDefined();
           }),
         ).pipe(Effect.scoped),
       ).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("rejects partial custom TLS flag sets", () =>
-    withTempDir((mtlsDir) =>
-      Effect.gen(function* () {
-        const error = yield* resolveMtlsServerConfig({
-          enabled: true,
-          mtlsDir,
-          certPath: "/tmp/server.pem",
-        }).pipe(Effect.flip);
-        expect(error._tag).toBe("MtlsConfigError");
-      }),
-    ).pipe(Effect.provide(NodeServices.layer)),
+  it.effect(
+    "rejects partial custom TLS flag sets, mismatched cert/key pairs, and invalid SANs",
+    () =>
+      withTempDir((mtlsDir) =>
+        Effect.gen(function* () {
+          const partialError = yield* resolveMtlsServerConfig({
+            enabled: true,
+            mtlsDir,
+            certPath: "/tmp/server.pem",
+          }).pipe(Effect.flip);
+          expect(partialError._tag).toBe("MtlsConfigError");
+
+          const pki = yield* ensureLocalMtlsPki({ mtlsDir });
+          const client = yield* issueMtlsClientCertificate({ mtlsDir, label: "wrong-key" });
+          const mismatchError = yield* resolveMtlsServerConfig({
+            enabled: true,
+            mtlsDir,
+            certPath: pki.paths.serverCertPath,
+            keyPath: client.keyPath,
+            caPath: pki.paths.caCertPath,
+          }).pipe(Effect.flip);
+          expect(mismatchError._tag).toBe("MtlsConfigError");
+
+          const invalidSanError = yield* ensureLocalMtlsPki({
+            mtlsDir,
+            extraSans: ["bad host\nname"],
+          }).pipe(Effect.flip);
+          expect(invalidSanError._tag).toBe("MtlsPkiError");
+        }),
+      ).pipe(Effect.provide(NodeServices.layer)),
   );
 });
 
