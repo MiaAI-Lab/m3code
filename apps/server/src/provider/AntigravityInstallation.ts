@@ -571,7 +571,8 @@ export const makeAntigravityInstallation = Effect.fn("AntigravityInstallation.ma
       return { ...installed, source };
     }
     // Keep launcher symlinks intact: version-manager shims dispatch by their invoked name.
-    if (!isAntigravityCli(candidate, executablePath)) return null;
+    // Explicit user binaryPath overrides may point at custom wrapper scripts or versioned names.
+    if (source !== "override" && !isAntigravityCli(candidate, executablePath)) return null;
     return {
       executablePath: candidate,
       source,
@@ -592,7 +593,7 @@ export const makeAntigravityInstallation = Effect.fn("AntigravityInstallation.ma
       if (Option.isNone(resolved)) return null;
       const executablePath = resolved.value;
       if (yield* isManagedVersionCandidate(executablePath)) return null;
-      if (isAntigravityCli(candidate, executablePath)) {
+      if (source === "override" || isAntigravityCli(candidate, executablePath)) {
         return {
           executablePath: candidate,
           source,
@@ -660,9 +661,11 @@ export const makeAntigravityInstallation = Effect.fn("AntigravityInstallation.ma
         );
       return installed;
     }
-    for (const candidate of yield* commandCandidates("agy", processEnvironment)) {
-      const selected = yield* fromExternal(candidate, "path");
-      if (selected) return selected;
+    for (const command of ["agy", "antigravity"] as const) {
+      for (const candidate of yield* commandCandidates(command, processEnvironment)) {
+        const selected = yield* fromExternal(candidate, "path");
+        if (selected) return selected;
+      }
     }
     return yield* installationError(
       "resolve",

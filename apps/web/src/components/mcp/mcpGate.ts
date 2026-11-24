@@ -43,6 +43,8 @@ export function resolveMcpGate(
     readonly linkStateError: string | null;
     /** A backend this device runs; its link state names its own tunnel. */
     readonly thisMachine: boolean;
+    /** Direct HTTP(S) `/mcp` URL when connecting locally, over LAN/WireGuard, or via M3 Server. */
+    readonly directMcpUrl?: string | null;
     /** The account's machines on T3 Connect, where a saved machine's address and health come from. */
     readonly relay:
       | { readonly status: "loading" | "failed" }
@@ -56,6 +58,12 @@ export function resolveMcpGate(
   },
   resolve: MessageResolver = m,
 ): McpGate {
+  if (input.directMcpUrl) {
+    if (!input.connected) return { kind: "disconnected", relay: null };
+    if (input.approvalCodes === undefined) return { kind: "checking" };
+    if (!input.approvalCodes) return { kind: "update" };
+    return { kind: "open", mcpUrl: input.directMcpUrl };
+  }
   if (input.signedIn === undefined) return { kind: "checking" };
   if (!input.signedIn) return { kind: "sign-in" };
   const { relay } = input;
