@@ -18,13 +18,13 @@ import * as SourceControlHost from "@t3tools/source-control-core/server/SourceCo
 import { collectUint8StreamText } from "@t3tools/provider-core/server/collectStreamText";
 import type { SourceControlProviderContext } from "@t3tools/source-control-core/server/SourceControlProvider";
 
-// A Gitea list page can hold 50 pull request bodies; tea's output is otherwise capped at 1 MB.
+// A Gitea list page can hold 50 pull request bodies; CLI output is otherwise capped at 1 MB.
 const API_MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 
 const encodeApiBody = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 export class ForgejoCliError extends Schema.TaggedError<ForgejoCliError>()("ForgejoCliError", {
-  command: Schema.Literals(["fj", "tea"]),
+  command: Schema.Literals(["fj", "gt"]),
   cwd: Schema.String,
   detail: Schema.String,
   userFacingDetail: Schema.optional(Schema.String),
@@ -42,18 +42,42 @@ export class ForgejoCliError extends Schema.TaggedError<ForgejoCliError>()("Forg
   cause: Schema.optional(Schema.Defect()),
 }) {}
 
-export const ForgejoLoginSchema = Schema.Struct({
-  name: Schema.String,
-  url: Schema.String,
-  ssh_host: Schema.optional(Schema.String),
-  valid: Schema.optional(Schema.String),
+export const GtAuthStatusRowSchema = Schema.Struct({
+  host: Schema.String,
   user: Schema.String,
-  default: Schema.String,
+  active: Schema.Boolean,
+  credential_available: Schema.optional(Schema.Boolean),
+  verified: Schema.optional(Schema.NullOr(Schema.Boolean)),
+  error: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
-export function parseForgejoLogins(raw: string) {
-  const decoded = decodeJsonResult(Schema.Array(ForgejoLoginSchema))(raw);
-  return Result.isSuccess(decoded) ? decoded.success : [];
+export interface ForgejoLogin {
+  readonly name: string;
+  readonly url: string;
+  readonly ssh_host?: string;
+  readonly valid?: boolean;
+  readonly error?: string;
+  readonly user: string;
+  readonly default: boolean;
+}
+
+export function parseForgejoLogins(raw: string): ReadonlyArray<ForgejoLogin> {
+  const decoded = decodeJsonResult(Schema.Array(GtAuthStatusRowSchema))(raw);
+  if (Result.isFailure(decoded)) return [];
+  return decoded.success.map((row) => ({
+    name: row.user ? `${row.user}@${row.host}` : row.host,
+    url: row.host,
+    user: row.user,
+    default: row.active,
+    ...(row.verified !== undefined || row.credential_available !== undefined
+      ? {
+          valid:
+            (row.credential_available ?? true) &&
+            (row.verified === undefined || row.verified === null ? true : row.verified),
+        }
+      : {}),
+    ...(row.error ? { error: row.error } : {}),
+  }));
 }
 
 export const ForgejoKeysSchema = Schema.Struct({
@@ -115,8 +139,9 @@ export interface ForgejoRepositoryInput {
 }
 
 export interface ForgejoRepository {
-  readonly command?: "fj" | "tea";
+  readonly command?: "fj" | "gt";
   readonly login: string;
+  readonly user?: string;
   readonly repository: string;
   readonly baseUrl: string;
 }
@@ -131,18 +156,19 @@ export class ForgejoCli extends Context.Service<
   ForgejoCli,
   {
     readonly execute: (input: {
-      readonly command?: "fj" | "tea";
+      readonly command?: "fj" | "gt";
       readonly cwd: string;
       readonly args: ReadonlyArray<string>;
       readonly stdin?: string;
       readonly timeoutMs?: number;
       readonly maxOutputBytes?: number;
+      readonly allowNonZeroExit?: boolean;
     }) => Effect.Effect<SourceControlHost.SourceControlProcessOutput, ForgejoCliError>;
     readonly listLogins?: (input: {
       readonly cwd: string;
-      readonly command: "fj" | "tea";
+      readonly command: "fj" | "gt";
       readonly remoteUrl?: string;
-    }) => Effect.Effect<ReturnType<typeof parseForgejoLogins>, ForgejoCliError>;
+    }) => Effect.Effect<ReadonlyArray<ForgejoLogin>, ForgejoCliError>;
     readonly getAccount?: (input: {
       readonly cwd: string;
       readonly baseUrl: string;
@@ -218,7 +244,7 @@ export function matchForgejoLogin(
   return matches.length === 1
     ? matches[0]
     : new Set(matches.map((login) => login.url)).size === 1
-      ? matches.find((login) => login.default === "true")
+      ? matches.find((login) => login.default)
       : undefined;
 }
 
@@ -240,14 +266,14 @@ export const make = Effect.gen(function* () {
       .run({
         ...input,
         operation: "ForgejoCli.execute",
-        command: input.command ?? "tea",
+        command: input.command ?? "gt",
         timeoutMs: input.timeoutMs ?? 30_000,
       })
       .pipe(
         Effect.mapError(
           (cause) =>
             new ForgejoCliError({
-              command: input.command ?? "tea",
+              command: input.command ?? "gt",
               cwd: input.cwd,
               ...(input.command === "fj" ? {} : { cause }),
               ...(cause._tag === "VcsProcessSpawnError"
@@ -257,9 +283,9 @@ export const make = Effect.gen(function* () {
                   : {}),
               detail:
                 cause._tag === "VcsProcessSpawnError"
-                  ? "Install Forgejo CLI (`fj` 0.6 or later) or Gitea CLI (`tea` 0.16 or later) and retry."
+                  ? "Install Forgejo CLI (`fj` 0.6 or later) or Gitea CLI (`gt`) and retry."
                   : cause._tag === "VcsProcessExitError" && cause.failureKind === "authentication"
-                    ? "Authenticate this server with `fj auth login`, `fj auth add-token`, or `tea login add`."
+                    ? "Authenticate this server with `fj auth login`, `fj auth add-token`, or `gt auth login`."
                     : "Forgejo CLI command failed.",
             }),
         ),
@@ -316,14 +342,14 @@ export const make = Effect.gen(function* () {
     const remote = remoteUrl ? parseForgejoRemote(remoteUrl) : null;
     return Object.keys(keys.hosts).flatMap((host) => {
       const url = parseForgejoRemote(`https://${host}`);
-      // fj drops URL mounts during whoami and OAuth renewal; tea supports them.
+      // fj drops URL mounts during whoami and OAuth renewal; gt supports them.
       if (!url || url.path) return [];
       // fj omits the scheme in storage. Only an explicit matching HTTP remote opts into HTTP.
       const scheme =
         remote && !remote.ssh && remote.host === url.host && /^http:\/\//i.test(remoteUrl ?? "")
           ? "http"
           : "https";
-      const login = { name: host, url: `${scheme}://${host}`, user: "", default: "false" };
+      const login = { name: host, url: `${scheme}://${host}`, user: "", default: false };
       const aliases = Object.entries(keys.aliases ?? {})
         .filter(([, target]) => target === host)
         .map(([alias]) => ({ ...login, ssh_host: alias }));
@@ -337,7 +363,7 @@ export const make = Effect.gen(function* () {
     if (input.command === "fj") {
       const keys = yield* readKeys(input.cwd).pipe(Effect.result);
       if (Result.isFailure(keys)) {
-        // Stale credentials from an uninstalled fj must not disable an available tea login.
+        // Stale credentials from an uninstalled fj must not disable an available gt login.
         const available = yield* execute({ command: "fj", cwd: input.cwd, args: ["version"] }).pipe(
           Effect.result,
         );
@@ -347,7 +373,12 @@ export const make = Effect.gen(function* () {
       return publicLogins(keys.success, input.remoteUrl);
     }
     return parseForgejoLogins(
-      (yield* execute({ cwd: input.cwd, args: ["login", "list", "--output", "json"] })).stdout,
+      (
+        yield* execute({
+          cwd: input.cwd,
+          args: ["auth", "status", "--json", "host,user,active,credential_available"],
+        })
+      ).stdout,
     );
   });
 
@@ -465,7 +496,7 @@ export const make = Effect.gen(function* () {
 
   const authenticateFj = Effect.fn("ForgejoCli.authenticateFj")(function* (
     cwd: string,
-    login: typeof ForgejoLoginSchema.Type,
+    login: ForgejoLogin,
   ) {
     const keys = yield* readKeys(cwd);
     const token = keys.hosts[login.name]?.token;
@@ -548,7 +579,7 @@ export const make = Effect.gen(function* () {
           Effect.mapError(
             (cause) =>
               new ForgejoCliError({
-                command: "tea",
+                command: "gt",
                 cwd: input.cwd,
                 detail: "Could not resolve the Forgejo repository remote.",
                 cause,
@@ -608,13 +639,14 @@ export const make = Effect.gen(function* () {
     });
     const requestedHost = input.host ?? input.context?.requestedHost;
     const matchHostOnly = hostOnly || (!!input.host && !remote?.path);
-    const selectLogin = (logins: ReturnType<typeof parseForgejoLogins>) =>
+    const selectLogin = (logins: ReadonlyArray<ForgejoLogin>) =>
       remote
         ? matchForgejoLogin(logins, remote, remote.ssh ? requestedHost : undefined, matchHostOnly)
-        : (logins.find((item) => item.default === "true") ??
-          (new Set(logins.map((item) => item.name)).size === 1 ? logins[0] : undefined));
+        : new Set(logins.map((item) => item.url)).size === 1
+          ? (logins.find((item) => item.default) ?? logins[0])
+          : undefined;
     let login = selectLogin(fjLogins);
-    let command: "fj" | "tea" = "fj";
+    let command: "fj" | "gt" = "fj";
     if (
       !login &&
       fjLogins.some(
@@ -643,19 +675,25 @@ export const make = Effect.gen(function* () {
       }
     }
     if (!login) {
-      command = "tea";
-      login = selectLogin(yield* listLogins({ cwd: input.cwd, command: "tea" }));
+      command = "gt";
+      login = selectLogin(yield* listLogins({ cwd: input.cwd, command: "gt" }));
     }
     if (!login)
       return yield* new ForgejoCliError({
-        command: "tea",
+        command: "gt",
         cwd: input.cwd,
         reason: "authentication",
         detail:
-          "No matching Forgejo login. Use `fj auth login`, `fj auth add-token`, or `tea login add` for this server. For a server under a URL subpath, use `tea login add`. Choose a default when multiple tea accounts match.",
+          "No matching Forgejo login. Use `fj auth login`, `fj auth add-token`, or `gt auth login` for this server. For a server under a URL subpath, use `gt auth login`. Choose an active account with `gt auth switch` when multiple gt accounts match.",
       });
     if (hostOnly)
-      return { command, login: login.name, repository: "", baseUrl: login.url.replace(/\/+$/, "") };
+      return {
+        command,
+        login: login.name,
+        ...(login.user ? { user: login.user } : {}),
+        repository: "",
+        baseUrl: login.url.replace(/\/+$/, ""),
+      };
     const path =
       referenceRemote?.path ??
       (input.repository && !parseForgejoRemote(input.repository)
@@ -680,7 +718,13 @@ export const make = Effect.gen(function* () {
         cwd: input.cwd,
         detail: "Specify a Forgejo repository as owner/repository or its full server URL.",
       });
-    return { command, login: login.name, repository, baseUrl: login.url.replace(/\/+$/, "") };
+    return {
+      command,
+      login: login.name,
+      ...(login.user ? { user: login.user } : {}),
+      repository,
+      baseUrl: login.url.replace(/\/+$/, ""),
+    };
   });
   const resolveRepository = (input: ForgejoRepositoryInput) => resolveTarget(input);
   const api = Effect.fn("ForgejoCli.api")(function* (input: ForgejoApiInput) {
@@ -695,7 +739,7 @@ export const make = Effect.gen(function* () {
             Effect.mapError(
               (cause) =>
                 new ForgejoCliError({
-                  command: "tea",
+                  command: "gt",
                   cwd: input.cwd,
                   detail: "Could not encode the Forgejo request body.",
                   cause,
@@ -733,23 +777,25 @@ export const make = Effect.gen(function* () {
       args: [
         "api",
         "--include",
-        "--login",
-        repository.login,
+        "--host",
+        repository.baseUrl,
+        ...(repository.user ? ["--user", repository.user] : []),
         ...(repository.repository ? ["--repo", repository.repository] : []),
         "--method",
         input.method ?? "GET",
-        ...(input.body === undefined ? [] : ["--data", "@-"]),
+        ...(input.body === undefined ? [] : ["--input", "-"]),
         `${repository.baseUrl}/api/v1/${path}`,
       ],
       ...(stdin === undefined ? {} : { stdin }),
+      allowNonZeroExit: true,
       maxOutputBytes: API_MAX_OUTPUT_BYTES,
     });
-    // tea reports HTTP failures with exit code zero; use its response status.
+    // gt api exits non-zero on non-2xx responses while printing status headers to stderr.
     const status = Number(/^HTTP\/\S+ (\d{3})/m.exec(result.stderr)?.[1]);
     if (!status || status >= 400) {
       const body = result.stdout.trim();
       return yield* new ForgejoCliError({
-        command: "tea",
+        command: "gt",
         cwd: input.cwd,
         ...(status ? { httpStatus: status } : {}),
         ...(status === 401
@@ -763,7 +809,7 @@ export const make = Effect.gen(function* () {
                 : {}),
         detail:
           status === 401 || status === 403
-            ? "Forgejo denied access. Check this server's `tea login` credentials and permissions."
+            ? "Forgejo denied access. Check this server's `gt auth` credentials and permissions."
             : status === 404
               ? "Forgejo repository or pull request was not found."
               : status === 429
@@ -777,7 +823,7 @@ export const make = Effect.gen(function* () {
     }
     if (result.stdoutTruncated)
       return yield* new ForgejoCliError({
-        command: "tea",
+        command: "gt",
         cwd: input.cwd,
         reason: "invalid-response",
         detail: "Forgejo API response exceeded the output size limit.",
