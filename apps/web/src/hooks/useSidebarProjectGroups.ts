@@ -20,6 +20,7 @@ export function useSidebarProjectGroups() {
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const sortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
   const groupingSettings = useClientSettings(selectProjectGroupingSettings);
+  const defaultThreadEnvironmentId = useClientSettings((s) => s.defaultThreadEnvironmentId);
   const environments = useEnvironmentIdentities();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const resolve = useMessages();
@@ -41,6 +42,7 @@ export function useSidebarProjectGroups() {
       groupScratchProjects: true,
       settings: groupingSettings,
       primaryEnvironmentId,
+      preferredEnvironmentId: defaultThreadEnvironmentId ?? primaryEnvironmentId,
       resolveEnvironmentLabel: (environmentId) => labels.get(environmentId) ?? null,
     },
     resolve,

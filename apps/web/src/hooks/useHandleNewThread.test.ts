@@ -426,5 +426,11 @@ describe("default project selection", () => {
         "last-used:project",
       ),
     ).toEqual({ environmentId: "first", projectId: "project" });
+    expect(
+      resolveDefaultProjectRef(projects, [], "last-used:project", true, "first" as EnvironmentId),
+    ).toEqual({ environmentId: "first", projectId: "project" });
+    expect(
+      resolveDefaultProjectRef(projects, [], "last-used:project", true, "missing" as EnvironmentId),
+    ).toEqual({ environmentId: "last-used", projectId: "project" });
   });
 });

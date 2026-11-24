@@ -148,6 +148,7 @@ export function buildSidebarProjectSnapshots(
     settings: ProjectGroupingSettings;
     groupScratchProjects?: boolean;
     primaryEnvironmentId: EnvironmentId | null;
+    preferredEnvironmentId?: EnvironmentId | null;
     resolveEnvironmentLabel: (environmentId: EnvironmentId) => string | null;
     isDesktopLocalEnvironment?: (environmentId: EnvironmentId) => boolean;
     isWslEnvironment?: (environmentId: EnvironmentId) => boolean;
@@ -159,7 +160,7 @@ export function buildSidebarProjectSnapshots(
       projects: input.projects,
       groupScratchProjects: input.groupScratchProjects ?? false,
       settings: input.settings,
-      preferredEnvironmentId: input.primaryEnvironmentId,
+      preferredEnvironmentId: input.preferredEnvironmentId ?? input.primaryEnvironmentId,
     },
     resolve,
   ).map((group): SidebarProjectSnapshot => {

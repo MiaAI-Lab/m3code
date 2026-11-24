@@ -3217,7 +3217,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "auf dem Computer, der diese Seite geöffnet hat"],
+      "c": [
+        " ",
+        "auf dem Computer, der diese Seite geöffnet hat"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -3229,7 +3232,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "· wer es ausführt, erhält diesen Zugriff"],
+      "c": [
+        " ",
+        "· wer es ausführt, erhält diesen Zugriff"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -9081,6 +9087,10 @@
   "d0eb21be71904f84": "Ausweichmodell",
   "ebcfd96d4b112b4e": "Keins",
   "9db5fe9e87e35e10": "Ausweichmodell nicht gespeichert",
+  "531f72b2bd297543": "Standardumgebung für neue Threads. Automatisch verwendet die zuletzt genutzte oder primäre Umgebung.",
+  "afd6fde0d17ff8a8": "Standardumgebung auf Automatisch zurücksetzen",
+  "5ed0e86a59502f46": "Standard-Thread-Umgebung",
+  "e88c9d8769544731": "Automatisch",
   "b0c77717b7d7b4a3": "Neue Threads",
   "3dee662c2b837a30": "Berechtigungen für neue Threads in diesem Projekt.",
   "b886096e397a9d88": "Standardberechtigungen für neue Threads. Projekte können sie überschreiben.",
@@ -9107,6 +9117,7 @@
   "74a80f6d7962be21": "Worktree-Submodule auf Standard zurücksetzen",
   "1c97d5a78ca1fdb6": "Worktree-Submodule",
   "2c2b437431e4cd1d": "Keine Anbieter verfügbar",
+  "5f35cdb6701a255d": "Automatisch",
   "561c7b30cbf698ec": "Zuletzt ausgewählt",
   "caceacc91363777f": "Projektdateien werden durchsucht…",
   "5c05c11095f5fba8": "Projektdateien werden indiziert…",
@@ -9176,7 +9187,6 @@
   "0b4779a1825c85bc": "Der gemeinsame Name dieser Projektgruppe in der Seitenleiste und in Thread-Listen.",
   "f68cbda4df83d739": "Projektname auf Standard zurücksetzen",
   "56e37b85027e8431": "Projektsymbol",
-  "e88c9d8769544731": "Automatisch",
   "c99736317da5b1fa": "Projektsymbol auf Standard zurücksetzen",
   "6afaa3e3739dc570": "Projektsymbol auswählen",
   "51651ce45d481a20": "Datei für Projektsymbol auswählen",
@@ -11756,6 +11766,7 @@
   "955eee00b277a087": "Standardmodell",
   "a4b39948180f0b96": "neuer thread projekt anbieter reasoning aufwand",
   "a4946fb2bb1e9537": "ausweich agent anbieter nutzung aufgebraucht neue threads",
+  "3785db86873e6d44": "Standard-Thread-Umgebung neue Threads Maschine Server Host",
   "a5965c45cbba81b3": "neuer thread standard laufzeitmodus beaufsichtigt genehmigungen änderungen automatisch annehmen vollzugriff",
   "9dc52895a2561e0a": "Farbschema",
   "a4db56afef75963c": "darstellung hell dunkel system modus",

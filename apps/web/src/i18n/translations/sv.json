@@ -3216,7 +3216,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "på datorn som öppnade den här sidan"],
+      "c": [
+        " ",
+        "på datorn som öppnade den här sidan"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -3228,7 +3231,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "· den som kör den får den här åtkomsten"],
+      "c": [
+        " ",
+        "· den som kör den får den här åtkomsten"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -9088,6 +9094,10 @@
   "d0eb21be71904f84": "Reservmodell",
   "ebcfd96d4b112b4e": "Ingen",
   "9db5fe9e87e35e10": "Reservmodellen sparades inte",
+  "531f72b2bd297543": "Standardmiljö för nya trådar. Automatisk använder din senast använda eller primära miljö.",
+  "afd6fde0d17ff8a8": "Återställ standardmiljö till automatisk",
+  "5ed0e86a59502f46": "Standardmiljö för trådar",
+  "e88c9d8769544731": "Automatisk",
   "b0c77717b7d7b4a3": "Nya trådar",
   "3dee662c2b837a30": "Behörigheter för nya trådar i det här projektet.",
   "b886096e397a9d88": "Standardbehörigheter för nya trådar. Projekt kan åsidosätta dem.",
@@ -9114,6 +9124,7 @@
   "74a80f6d7962be21": "Återställ submoduler i worktrees till standard",
   "1c97d5a78ca1fdb6": "Worktree-submoduler",
   "2c2b437431e4cd1d": "Inga leverantörer tillgängliga",
+  "5f35cdb6701a255d": "Automatisk",
   "561c7b30cbf698ec": "Senast vald",
   "caceacc91363777f": "Söker i projektfiler…",
   "5c05c11095f5fba8": "Indexerar projektfiler…",
@@ -9183,7 +9194,6 @@
   "0b4779a1825c85bc": "Det gemensamma namnet för projektgruppen i sidofältet och trådlistorna.",
   "f68cbda4df83d739": "Återställ projektnamn till standard",
   "56e37b85027e8431": "Projektikon",
-  "e88c9d8769544731": "Automatisk",
   "c99736317da5b1fa": "Återställ projektikon till standard",
   "6afaa3e3739dc570": "Välj en projektikon",
   "51651ce45d481a20": "Välj en fil för projektikonen",
@@ -11763,6 +11773,7 @@
   "955eee00b277a087": "Standardmodell",
   "a4b39948180f0b96": "ny tråd projekt leverantör resonemang ansträngning reasoning effort",
   "a4946fb2bb1e9537": "reserv agent leverantör slut på användning nya trådar fallback",
+  "3785db86873e6d44": "standardmiljö nya trådar maskin server värd",
   "a5965c45cbba81b3": "ny tråd standard körläge övervakad godkännanden godkänn ändringar automatiskt full åtkomst",
   "9dc52895a2561e0a": "Färgschema",
   "a4db56afef75963c": "utseende ljust mörkt system läge",

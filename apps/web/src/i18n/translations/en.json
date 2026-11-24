@@ -3218,7 +3218,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "on the computer that opened this page"]
+      "c": [
+        " ",
+        "on the computer that opened this page"
+      ]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3230,7 +3233,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "· whoever runs it gets this access"]
+      "c": [
+        " ",
+        "· whoever runs it gets this access"
+      ]
     }
   ],
   "c54cc9c75db9dc58": "Only approve a sign-in you just started.",
@@ -9089,6 +9095,10 @@
   "d0eb21be71904f84": "Fallback model",
   "ebcfd96d4b112b4e": "None",
   "9db5fe9e87e35e10": "Fallback model not saved",
+  "531f72b2bd297543": "Default environment for new threads. Automatic uses your last used or primary environment.",
+  "afd6fde0d17ff8a8": "Reset default environment to automatic",
+  "5ed0e86a59502f46": "Default thread environment",
+  "e88c9d8769544731": "Automatic",
   "b0c77717b7d7b4a3": "New threads",
   "3dee662c2b837a30": "Permissions for new threads in this project.",
   "b886096e397a9d88": "Default permissions for new threads. Projects can override them.",
@@ -9115,6 +9125,7 @@
   "74a80f6d7962be21": "Reset worktree submodules to default",
   "1c97d5a78ca1fdb6": "Worktree submodules",
   "2c2b437431e4cd1d": "No providers available",
+  "5f35cdb6701a255d": "Automatic",
   "561c7b30cbf698ec": "Last selected",
   "caceacc91363777f": "Searching project files…",
   "5c05c11095f5fba8": "Indexing project files…",
@@ -9184,7 +9195,6 @@
   "0b4779a1825c85bc": "The shared name for this project group in the sidebar and thread lists.",
   "f68cbda4df83d739": "Reset project name to default",
   "56e37b85027e8431": "Project icon",
-  "e88c9d8769544731": "Automatic",
   "c99736317da5b1fa": "Reset project icon to default",
   "6afaa3e3739dc570": "Choose a project icon",
   "51651ce45d481a20": "Choose a project icon file",
@@ -11764,6 +11774,7 @@
   "955eee00b277a087": "Default model",
   "a4b39948180f0b96": "new thread project provider reasoning effort",
   "a4946fb2bb1e9537": "fallback agent provider out of usage new threads",
+  "3785db86873e6d44": "default thread environment new threads machine server host",
   "a5965c45cbba81b3": "new thread default runtime mode supervised approvals auto accept edits full access",
   "9dc52895a2561e0a": "Color scheme",
   "a4db56afef75963c": "appearance light dark system mode",

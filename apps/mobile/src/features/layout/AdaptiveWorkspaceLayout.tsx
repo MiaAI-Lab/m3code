@@ -646,7 +646,7 @@ function AdaptiveWorkspaceLayoutContent(
         filteredProject: filteredScope
           ? newTaskFilteredProject(
               filteredScope,
-              listEnvironmentId,
+              listEnvironmentId ?? saved?.defaultThreadEnvironmentId ?? null,
               connectedEnvironmentIds,
               saved?.lastThreadProject,
             )

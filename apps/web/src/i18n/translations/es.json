@@ -3216,7 +3216,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "en el ordenador que abrió esta página"],
+      "c": [
+        " ",
+        "en el ordenador que abrió esta página"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -3228,7 +3231,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "· quien lo ejecute obtiene este acceso"],
+      "c": [
+        " ",
+        "· quien lo ejecute obtiene este acceso"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -9080,6 +9086,10 @@
   "d0eb21be71904f84": "Modelo de respaldo",
   "ebcfd96d4b112b4e": "Ninguno",
   "9db5fe9e87e35e10": "No se guardó el modelo de respaldo",
+  "531f72b2bd297543": "Entorno predeterminado para nuevos hilos. Automático usa tu último entorno usado o el principal.",
+  "afd6fde0d17ff8a8": "Restablecer entorno predeterminado a automático",
+  "5ed0e86a59502f46": "Entorno predeterminado de hilos",
+  "e88c9d8769544731": "Automático",
   "b0c77717b7d7b4a3": "Nuevos hilos",
   "3dee662c2b837a30": "Permisos para los nuevos hilos de este proyecto.",
   "b886096e397a9d88": "Permisos predeterminados para los nuevos hilos. Los proyectos pueden anularlos.",
@@ -9106,6 +9116,7 @@
   "74a80f6d7962be21": "Restablecer los submódulos del worktree al valor predeterminado",
   "1c97d5a78ca1fdb6": "Submódulos de worktrees",
   "2c2b437431e4cd1d": "No hay proveedores disponibles",
+  "5f35cdb6701a255d": "Automático",
   "561c7b30cbf698ec": "Última selección",
   "caceacc91363777f": "Buscando archivos del proyecto…",
   "5c05c11095f5fba8": "Indexando archivos del proyecto…",
@@ -9175,7 +9186,6 @@
   "0b4779a1825c85bc": "El nombre compartido de este grupo de proyectos en la barra lateral y en las listas de hilos.",
   "f68cbda4df83d739": "Restablecer el nombre del proyecto al valor predeterminado",
   "56e37b85027e8431": "Icono del proyecto",
-  "e88c9d8769544731": "Automático",
   "c99736317da5b1fa": "Restablecer el icono del proyecto al valor predeterminado",
   "6afaa3e3739dc570": "Elige un icono para el proyecto",
   "51651ce45d481a20": "Elige un archivo de icono para el proyecto",
@@ -11750,6 +11760,7 @@
   "955eee00b277a087": "Modelo predeterminado",
   "a4b39948180f0b96": "hilo nuevo proyecto proveedor esfuerzo de razonamiento",
   "a4946fb2bb1e9537": "alternativo agente proveedor sin uso hilos nuevos",
+  "3785db86873e6d44": "entorno predeterminado de hilos nuevos hilos máquina servidor host",
   "a5965c45cbba81b3": "hilo nuevo modo de ejecución predeterminado supervisado aprobaciones aceptar ediciones automáticamente acceso total",
   "9dc52895a2561e0a": "Esquema de colores",
   "a4db56afef75963c": "apariencia claro oscuro modo del sistema",

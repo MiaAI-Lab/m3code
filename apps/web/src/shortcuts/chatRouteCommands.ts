@@ -83,6 +83,7 @@ export function installChatRouteCommands(router: AnyRouter): () => void {
         ? drafts.getDraftThread(target.threadRef)
         : drafts.getDraftSession(target.draftId)
       : null;
+    const clientSettings = getClientSettings();
     return {
       activeDraftThread,
       activeThread: activeThread ?? undefined,
@@ -91,20 +92,25 @@ export function installChatRouteCommands(router: AnyRouter): () => void {
         useUiStateStore.getState().projectOrder,
         lastUsedProjectKey,
         appAtomRegistry.get(defaultProjectFallbackReadyAtom(lastUsedProjectKey)),
-        selectProjectGroupingSettings(getClientSettings()),
+        clientSettings.defaultThreadEnvironmentId,
+        selectProjectGroupingSettings(clientSettings),
       ),
       handleNewThread,
     };
   };
   // Grouped like the sidebar, so the shortcut and the New thread button agree.
-  const readProjectGroups = () =>
-    buildSidebarProjectSnapshots({
+  const readProjectGroups = () => {
+    const clientSettings = getClientSettings();
+    const primaryEnvironmentId = appAtomRegistry.get(primaryEnvironmentIdAtom);
+    return buildSidebarProjectSnapshots({
       projects: readProjects(),
       groupScratchProjects: true,
-      settings: selectProjectGroupingSettings(getClientSettings()),
-      primaryEnvironmentId: appAtomRegistry.get(primaryEnvironmentIdAtom),
+      settings: selectProjectGroupingSettings(clientSettings),
+      primaryEnvironmentId,
+      preferredEnvironmentId: clientSettings.defaultThreadEnvironmentId ?? primaryEnvironmentId,
       resolveEnvironmentLabel: () => null,
     });
+  };
   const canOperatePreview = (environmentId: EnvironmentId) =>
     readEnvironmentScope(environmentId, AuthPreviewOperateScope);
 

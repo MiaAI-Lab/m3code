@@ -5,6 +5,7 @@ import {
 } from "@t3tools/client-runtime/environment";
 import {
   DEFAULT_SERVER_SETTINGS,
+  type EnvironmentId,
   type ScopedProjectRef,
   type T3ProjectFile,
   type ThreadId,
@@ -479,18 +480,31 @@ export function resolveDefaultProjectRef(
   projectOrder: readonly string[],
   lastUsedProjectKey: string | null,
   fallbackReady = true,
+  defaultThreadEnvironmentId: EnvironmentId | null = null,
   groupingSettings?: ProjectGroupingSettings,
 ): ScopedProjectRef | null {
-  const lastUsed = projects.find(
+  const activeProjects = projects.filter((project) => project.archivedAt == null);
+  const lastUsed = activeProjects.find(
     (project) =>
-      project.archivedAt == null &&
       scopedProjectKey(scopeProjectRef(project.environmentId, project.id)) === lastUsedProjectKey,
   );
-  if (lastUsed) return scopeProjectRef(lastUsed.environmentId, lastUsed.id);
+  if (
+    lastUsed &&
+    (defaultThreadEnvironmentId === null || lastUsed.environmentId === defaultThreadEnvironmentId)
+  ) {
+    return scopeProjectRef(lastUsed.environmentId, lastUsed.id);
+  }
   if (!fallbackReady) return null;
-  const liveProjects = projects.filter((project) => project.archivedAt == null);
+  const preferredPool =
+    defaultThreadEnvironmentId !== null
+      ? activeProjects.filter((project) => project.environmentId === defaultThreadEnvironmentId)
+      : [];
+  const candidatePool = preferredPool.length > 0 ? preferredPool : activeProjects;
+  if (preferredPool.length === 0 && lastUsed) {
+    return scopeProjectRef(lastUsed.environmentId, lastUsed.id);
+  }
   const [firstProject] = orderItemsByPreferredIds({
-    items: liveProjects,
+    items: candidatePool,
     preferredIds: projectOrder,
     getId: getProjectOrderKey,
     getPreferenceIds: (project) => [
@@ -500,13 +514,14 @@ export function resolveDefaultProjectRef(
   });
   if (!firstProject) return null;
   const defaultProject = groupingSettings
-    ? resolveGroupDefaultProject(firstProject, liveProjects, groupingSettings)
+    ? resolveGroupDefaultProject(firstProject, candidatePool, groupingSettings)
     : firstProject;
   return scopeProjectRef(defaultProject.environmentId, defaultProject.id);
 }
 
 export function useHandleNewThread() {
   const projectOrder = useUiStateStore((store) => store.projectOrder);
+  const defaultThreadEnvironmentId = useClientSettings((s) => s.defaultThreadEnvironmentId);
   const [lastUsedProjectKey] = useLocalStorage(
     LAST_USED_PROJECT_STORAGE_KEY,
     null,
@@ -535,6 +550,7 @@ export function useHandleNewThread() {
     projectOrder,
     lastUsedProjectKey,
     defaultProjectFallbackReady,
+    defaultThreadEnvironmentId,
     groupingSettings,
   );
 

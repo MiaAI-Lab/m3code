@@ -3216,7 +3216,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "no computador que abriu esta página"],
+      "c": [
+        " ",
+        "no computador que abriu esta página"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -3228,7 +3231,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "· quem executar recebe este acesso"],
+      "c": [
+        " ",
+        "· quem executar recebe este acesso"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -9080,6 +9086,10 @@
   "d0eb21be71904f84": "Modelo alternativo",
   "ebcfd96d4b112b4e": "Nenhum",
   "9db5fe9e87e35e10": "Modelo alternativo não salvo",
+  "531f72b2bd297543": "Ambiente padrão para novos tópicos. Automático usa o último ambiente utilizado ou o ambiente principal.",
+  "afd6fde0d17ff8a8": "Redefinir ambiente padrão para automático",
+  "5ed0e86a59502f46": "Ambiente padrão de tópicos",
+  "e88c9d8769544731": "Automático",
   "b0c77717b7d7b4a3": "Novas threads",
   "3dee662c2b837a30": "Permissões para novas threads neste projeto.",
   "b886096e397a9d88": "Permissões padrão para novas threads. Os projetos podem substituí-las.",
@@ -9106,6 +9116,7 @@
   "74a80f6d7962be21": "Redefinir os submódulos de worktrees para o padrão",
   "1c97d5a78ca1fdb6": "Submódulos do worktree",
   "2c2b437431e4cd1d": "Nenhum provedor disponível",
+  "5f35cdb6701a255d": "Automático",
   "561c7b30cbf698ec": "Último selecionado",
   "caceacc91363777f": "Pesquisando arquivos do projeto…",
   "5c05c11095f5fba8": "Indexando arquivos do projeto…",
@@ -9176,7 +9187,6 @@
   "0b4779a1825c85bc": "O nome compartilhado deste grupo de projetos na barra lateral e nas listas de threads.",
   "f68cbda4df83d739": "Redefinir o nome do projeto para o padrão",
   "56e37b85027e8431": "Ícone do projeto",
-  "e88c9d8769544731": "Automático",
   "c99736317da5b1fa": "Redefinir o ícone do projeto para o padrão",
   "6afaa3e3739dc570": "Escolha um ícone para o projeto",
   "51651ce45d481a20": "Escolha um arquivo de ícone para o projeto",
@@ -11754,6 +11764,7 @@
   "955eee00b277a087": "Modelo padrão",
   "a4b39948180f0b96": "nova thread projeto provedor esforço de raciocínio",
   "a4946fb2bb1e9537": "agente alternativo provedor limite de uso novas threads",
+  "3785db86873e6d44": "ambiente padrão de tópicos novos tópicos máquina servidor host",
   "a5965c45cbba81b3": "nova thread modo de execução padrão supervisionado aprovações aceitar edições automaticamente acesso total",
   "9dc52895a2561e0a": "Esquema de cores",
   "a4db56afef75963c": "aparência clara escura sistema modo",

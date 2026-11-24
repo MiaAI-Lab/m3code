@@ -3216,7 +3216,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "sur l’ordinateur qui a ouvert cette page"],
+      "c": [
+        " ",
+        "sur l’ordinateur qui a ouvert cette page"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -3228,7 +3231,10 @@
       "v": "v"
     },
     {
-      "c": [" ", "· quiconque l’exécute obtient cet accès"],
+      "c": [
+        " ",
+        "· quiconque l’exécute obtient cet accès"
+      ],
       "i": 2,
       "t": "span"
     }
@@ -9081,6 +9087,10 @@
   "d0eb21be71904f84": "Modèle de secours",
   "ebcfd96d4b112b4e": "Aucun",
   "9db5fe9e87e35e10": "Modèle de secours non enregistré",
+  "531f72b2bd297543": "Environnement par défaut pour les nouveaux fils. Automatique utilise le dernier environnement utilisé ou l'environnement principal.",
+  "afd6fde0d17ff8a8": "Réinitialiser l'environnement par défaut sur automatique",
+  "5ed0e86a59502f46": "Environnement par défaut des fils",
+  "e88c9d8769544731": "Automatique",
   "b0c77717b7d7b4a3": "Nouveaux fils",
   "3dee662c2b837a30": "Autorisations des nouveaux fils de ce projet.",
   "b886096e397a9d88": "Autorisations par défaut des nouveaux fils. Les projets peuvent les remplacer.",
@@ -9107,6 +9117,7 @@
   "74a80f6d7962be21": "Réinitialiser les sous-modules des worktrees à la valeur par défaut",
   "1c97d5a78ca1fdb6": "Sous-modules des worktrees",
   "2c2b437431e4cd1d": "Aucun fournisseur disponible",
+  "5f35cdb6701a255d": "Automatique",
   "561c7b30cbf698ec": "Dernière sélection",
   "caceacc91363777f": "Recherche dans les fichiers du projet…",
   "5c05c11095f5fba8": "Indexation des fichiers du projet…",
@@ -9176,7 +9187,6 @@
   "0b4779a1825c85bc": "Le nom commun de ce groupe de projets dans la barre latérale et les listes de fils.",
   "f68cbda4df83d739": "Réinitialiser le nom du projet à la valeur par défaut",
   "56e37b85027e8431": "Icône du projet",
-  "e88c9d8769544731": "Automatique",
   "c99736317da5b1fa": "Réinitialiser l’icône du projet à la valeur par défaut",
   "6afaa3e3739dc570": "Choisir une icône de projet",
   "51651ce45d481a20": "Choisir un fichier d’icône de projet",
@@ -11754,6 +11764,7 @@
   "955eee00b277a087": "Modèle par défaut",
   "a4b39948180f0b96": "nouveau fil projet fournisseur effort de raisonnement",
   "a4946fb2bb1e9537": "secours agent fournisseur plus de quota nouveaux fils",
+  "3785db86873e6d44": "environnement par défaut des fils nouveaux fils machine serveur hôte",
   "a5965c45cbba81b3": "nouveau fil mode d’exécution par défaut supervisé approbations acceptation auto des modifications accès complet",
   "9dc52895a2561e0a": "Jeu de couleurs",
   "a4db56afef75963c": "apparence clair sombre système mode",
