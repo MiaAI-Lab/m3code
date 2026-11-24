@@ -3216,10 +3216,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "on the computer that opened this page"
-      ]
+      "c": [" ", "on the computer that opened this page"]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3231,10 +3228,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "· whoever runs it gets this access"
-      ]
+      "c": [" ", "· whoever runs it gets this access"]
     }
   ],
   "c54cc9c75db9dc58": "Only approve a sign-in you just started.",
@@ -3348,6 +3342,9 @@
   "95ee62a0d6968b89": "Send message",
   "164d3295a763dbad": "Snapshot is no longer available.",
   "f77ce9bc81a68882": "The snapshot is not ready to copy.",
+  "58cabf2ead969981": "Voice: Stopped turn",
+  "40553a2803cd77bd": "Voice: Cleared draft",
+  "688841dee65b495c": "Voice: Switched to {model}",
   "68a4461e56df0896": "Preparing voice input",
   "4bc6e68c58cbb173": "Still bringing attached context into this message.",
   "62bf4adef45b9830": "Send again once its chip resolves.",
@@ -11428,6 +11425,14 @@
   "5e133e6443a2c3ef": "Model for transcript cleanup, such as a cheaper or faster one. When disabled, use the text generation model configured for this environment.",
   "5c0e844264a2e844": "Use a separate cleanup model",
   "62c6adee995fa214": "Could not load transcription models",
+  "4170a089def95106": "Local STT endpoint URL",
+  "7372037f12cef7fa": "Optional OpenAI-compatible or whisper.cpp HTTP endpoint (for example, http://127.0.0.1:8178/inference or a Spark LAN STT server). Leave blank to use built-in local models.",
+  "3f4d73157d7e1bbd": "Local STT model name",
+  "c8ace188ab296e00": "Model field sent to the local STT server (defaults to whisper-1).",
+  "f92b53170d3befb8": "Local 2nd-pass cleanup endpoint URL",
+  "aacbb703bcc5c618": "Optional local OpenAI-compatible /v1/chat/completions endpoint (for example, Ollama, llama.cpp, or Spark) for Phase 2 punctuation and typo cleanup. Leave blank to use the built-in zero-API-call local cleaner.",
+  "b949144b6ef6c480": "Local cleanup model name",
+  "d5bae3edb768d1f8": "Model name sent to your local cleanup endpoint.",
   "293c586d85558297": "Streaming transcription",
   "65c7c7aeb678a56b": "Transcribe while recording. Turn off to transcribe after stopping, which may help when live transcription falls behind.",
   "04375f4dac3d39ee": "This model doesn’t support native streaming.",
@@ -11489,9 +11494,18 @@
   "adde9666f7fb8c5d": "Remove filler words",
   "95ac70c5da02c46a": "Not available with Apple Speech.",
   "943ea47b1df48f12": "Drop “um” and “uh” from transcripts.",
+  "6e0937fb9fa87356": "Hands-free control",
+  "f77671f71c7e83f1": "Voice commands",
+  "e561bf178715f035": "Say “switch to Opus”, “stop generating”, “clear draft”, or end with “send it” to drive AI models by voice.",
+  "bbf5c2c487c62cad": "Auto-send on pause",
+  "1ee0e1a3e4784e51": "Automatically finish recording and submit your prompt after a pause in speech.",
+  "330d748e00faa418": "Silence pause",
+  "8615a621c28bb2df": "How long to wait after you stop speaking before sending.",
   "e1e054a313ece9d0": "Dictionary",
   "79c4100c78265c98": "Your dictionary",
   "52da2d9f926e4ede": "Names and terms to spell your way, saved on this device.",
+  "0221a43edf5adf25": "Local 2nd-pass cleanup (no API call)",
+  "8f9938d54f9f87ac": "Automatically fixes capitalization, punctuation, stutters, and spoken corrections locally right after you stop speaking.",
   "8116a7b3d9726213": "Clean up transcripts",
   "6685da9a88415184": "Off by default. Sends the transcript and nearby draft text, never audio, to the cleanup model.",
   "bb43ac92ca9fb017": "Instructions",

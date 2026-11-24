@@ -152,6 +152,7 @@ import { attachmentUploadBlockReason } from "../../lib/attachmentUploadState";
 import { useDictationShortcut } from "../../speech/useDictationShortcut";
 import { useDictationSubmissionShortcut } from "../../speech/useDictationSubmissionShortcut";
 import { useEnvironmentSpeechInput } from "../../speech/useEnvironmentSpeechInput";
+import { parseVoiceCommand, type VoiceModelCandidate } from "../../speech/voiceCommands";
 import { ComposerSpeechButton, ComposerSpeechRecordingPill } from "./ComposerSpeechButton";
 import type { AssistantCitationSourceAnchor } from "~/lib/assistantTextSelection";
 import { shortcutLabelForCommand, type ShortcutMatchContext } from "../../keybindings";
@@ -1962,6 +1963,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   };
   const readComposerSnapshotStable = useStableCallback(readComposerSnapshot);
 
+  const [voiceCommandSubmitSeq, setVoiceCommandSubmitSeq] = useState(0);
   const dictationDisabled =
     !canOperateThread ||
     environmentUnavailable !== null ||
@@ -2010,14 +2012,84 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     },
     commitDraft: (text, selection) => {
       const snapshot = readComposerSnapshot();
-      const applied = applyPromptReplacement(0, snapshot.value.length, text, {
-        expectedText: snapshot.value,
-        focusEditorAfterReplace: false,
-      });
-      if (!applied) return;
-      const cursor = collapseExpandedComposerCursor(text, selection.start, isLiteralPendingAnswer);
-      setComposerCursor(cursor);
-      window.requestAnimationFrame(() => composerEditorRef.current?.focusAt(cursor));
+      const applyCommittedText = (nextText: string, nextCursorOffset?: number) => {
+        const cursorOffset = nextCursorOffset ?? nextText.length;
+        const applied = applyPromptReplacement(0, snapshot.value.length, nextText, {
+          expectedText: snapshot.value,
+          focusEditorAfterReplace: false,
+        });
+        if (!applied) return false;
+        const cursor = collapseExpandedComposerCursor(
+          nextText,
+          cursorOffset,
+          isLiteralPendingAnswer,
+        );
+        setComposerCursor(cursor);
+        window.requestAnimationFrame(() => composerEditorRef.current?.focusAt(cursor));
+        return true;
+      };
+
+      if (settings.voiceCommandsEnabled && !isLiteralPendingAnswer) {
+        const prefix = text.startsWith(snapshot.value) ? snapshot.value : "";
+        const utterance = prefix ? text.slice(prefix.length) : text;
+        const voiceModelCandidates: VoiceModelCandidate[] = [];
+        for (const entry of providerInstanceEntries) {
+          const options = modelOptionsByInstance.get(entry.instanceId) ?? [];
+          for (const option of options) {
+            if (getModelDisabledReason(entry.instanceId, option.slug) !== null) continue;
+            voiceModelCandidates.push({
+              instanceId: entry.instanceId,
+              model: option.slug,
+              label: option.name,
+              providerLabel: entry.displayName,
+            });
+          }
+        }
+        const command = parseVoiceCommand(utterance, voiceModelCandidates);
+        if (command.kind === "stop") {
+          onInterrupt();
+          toastManager.add({ type: "info", title: gt("Voice: Stopped turn") });
+          return;
+        }
+        if (command.kind === "clear") {
+          applyCommittedText("", 0);
+          toastManager.add({ type: "info", title: gt("Voice: Cleared draft") });
+          return;
+        }
+        if (command.kind === "switch-model") {
+          onProviderModelSelect(
+            command.candidate.instanceId as ProviderInstanceId,
+            command.candidate.model,
+            { focusComposer: false },
+          );
+          toastManager.add({
+            type: "info",
+            title: gt("Voice: Switched to {model}", { model: command.candidate.label }),
+          });
+          if (command.remainingText) {
+            const combined = prefix
+              ? `${prefix.trimEnd()} ${command.remainingText}`
+              : command.remainingText;
+            if (applyCommittedText(combined) && command.autoSend) {
+              setVoiceCommandSubmitSeq((seq) => seq + 1);
+            }
+          }
+          return;
+        }
+        if (command.kind === "send") {
+          const combined = command.text
+            ? prefix
+              ? `${prefix.trimEnd()} ${command.text}`
+              : command.text
+            : prefix.trimEnd();
+          if (applyCommittedText(combined) && combined.trim().length > 0) {
+            setVoiceCommandSubmitSeq((seq) => seq + 1);
+          }
+          return;
+        }
+      }
+
+      applyCommittedText(text, selection.start);
     },
   });
   const { blocksSubmission: voiceInputActive, submitAfterDictation } = speechInput;
@@ -2442,6 +2514,62 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     submitComposerRef.current = (mode, intent, options) =>
       submitComposerStable(undefined, mode, intent, options);
   }, [submitComposerStable]);
+
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- submits a spoken "send it" command once its draft replacement commits
+  useEffect(() => {
+    if (voiceCommandSubmitSeq === 0) return;
+    submitComposerStable();
+  }, [voiceCommandSubmitSeq, submitComposerStable]);
+
+  // Hands-free auto-send: after speech is detected, a sustained pause finishes recording and submits.
+  const voiceAutoSendHeardSpeechRef = useRef(false);
+  const voiceAutoSendTimerRef = useRef<number | null>(null);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears any pending hands-free timer on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceAutoSendTimerRef.current !== null) {
+        window.clearTimeout(voiceAutoSendTimerRef.current);
+        voiceAutoSendTimerRef.current = null;
+      }
+    };
+  }, []);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- manages the silence timer driven by live microphone levels during hands-free recording
+  useEffect(() => {
+    const clearSilenceTimer = () => {
+      if (voiceAutoSendTimerRef.current !== null) {
+        window.clearTimeout(voiceAutoSendTimerRef.current);
+        voiceAutoSendTimerRef.current = null;
+      }
+    };
+    if (!settings.voiceAutoSend || speechInput.state.phase !== "recording") {
+      voiceAutoSendHeardSpeechRef.current = false;
+      clearSilenceTimer();
+      return clearSilenceTimer;
+    }
+    if (speechInput.level >= 0.04) {
+      voiceAutoSendHeardSpeechRef.current = true;
+      clearSilenceTimer();
+      return clearSilenceTimer;
+    }
+    if (speechInput.level >= 0.02) {
+      clearSilenceTimer();
+      return clearSilenceTimer;
+    }
+    if (voiceAutoSendHeardSpeechRef.current && voiceAutoSendTimerRef.current === null) {
+      voiceAutoSendTimerRef.current = window.setTimeout(() => {
+        voiceAutoSendTimerRef.current = null;
+        voiceAutoSendHeardSpeechRef.current = false;
+        submitAfterDictation(() => submitComposerRef.current());
+      }, settings.voiceSilenceTimeoutMs);
+    }
+    return undefined;
+  }, [
+    settings.voiceAutoSend,
+    settings.voiceSilenceTimeoutMs,
+    speechInput.level,
+    speechInput.state.phase,
+    submitAfterDictation,
+  ]);
   useDictationSubmissionShortcut({
     enabled: voiceInputActive && !speechInput.preparing,
     formRef: composerFormRef,

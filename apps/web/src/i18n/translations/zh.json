@@ -3218,10 +3218,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "位于打开此页面的计算机上"
-      ],
+      "c": [" ", "位于打开此页面的计算机上"],
       "i": 2,
       "t": "span"
     }
@@ -3233,10 +3230,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "· 运行它的任何人都会获得此访问权限"
-      ],
+      "c": [" ", "· 运行它的任何人都会获得此访问权限"],
       "i": 2,
       "t": "span"
     }
@@ -3352,6 +3346,9 @@
   "95ee62a0d6968b89": "发送消息",
   "164d3295a763dbad": "快照已不可用。",
   "f77ce9bc81a68882": "快照尚未准备好复制。",
+  "58cabf2ead969981": "Voice: Stopped turn",
+  "40553a2803cd77bd": "Voice: Cleared draft",
+  "688841dee65b495c": "Voice: Switched to {model}",
   "68a4461e56df0896": "正在准备语音输入",
   "4bc6e68c58cbb173": "仍在把附加的上下文放入这条消息。",
   "62bf4adef45b9830": "标签加载完成后请再次发送。",
@@ -11442,6 +11439,14 @@
   "5e133e6443a2c3ef": "整理转写文本所用的模型，例如更便宜或更快的模型。关闭时使用此环境配置的文本生成模型。",
   "5c0e844264a2e844": "使用单独的文本整理模型",
   "62c6adee995fa214": "无法加载转写模型",
+  "4170a089def95106": "Local STT endpoint URL",
+  "7372037f12cef7fa": "Optional OpenAI-compatible or whisper.cpp HTTP endpoint (for example, http://127.0.0.1:8178/inference or a Spark LAN STT server). Leave blank to use built-in local models.",
+  "3f4d73157d7e1bbd": "Local STT model name",
+  "c8ace188ab296e00": "Model field sent to the local STT server (defaults to whisper-1).",
+  "f92b53170d3befb8": "Local 2nd-pass cleanup endpoint URL",
+  "aacbb703bcc5c618": "Optional local OpenAI-compatible /v1/chat/completions endpoint (for example, Ollama, llama.cpp, or Spark) for Phase 2 punctuation and typo cleanup. Leave blank to use the built-in zero-API-call local cleaner.",
+  "b949144b6ef6c480": "Local cleanup model name",
+  "d5bae3edb768d1f8": "Model name sent to your local cleanup endpoint.",
   "293c586d85558297": "流式转写",
   "65c7c7aeb678a56b": "边录音边转写。关闭后会在停止录音后转写，适合实时转写跟不上录音的情况。",
   "04375f4dac3d39ee": "此模型不支持原生流式转写。",
@@ -11503,9 +11508,18 @@
   "adde9666f7fb8c5d": "移除语气词",
   "95ac70c5da02c46a": "Apple Speech 不支持此功能。",
   "943ea47b1df48f12": "从转写文本中移除“嗯”“呃”等语气词。",
+  "6e0937fb9fa87356": "Hands-free control",
+  "f77671f71c7e83f1": "Voice commands",
+  "e561bf178715f035": "Say “switch to Opus”, “stop generating”, “clear draft”, or end with “send it” to drive AI models by voice.",
+  "bbf5c2c487c62cad": "Auto-send on pause",
+  "1ee0e1a3e4784e51": "Automatically finish recording and submit your prompt after a pause in speech.",
+  "330d748e00faa418": "Silence pause",
+  "8615a621c28bb2df": "How long to wait after you stop speaking before sending.",
   "e1e054a313ece9d0": "词典",
   "79c4100c78265c98": "你的词典",
   "52da2d9f926e4ede": "按你的习惯拼写姓名和术语，保存在此设备上。",
+  "0221a43edf5adf25": "Local 2nd-pass cleanup (no API call)",
+  "8f9938d54f9f87ac": "Automatically fixes capitalization, punctuation, stutters, and spoken corrections locally right after you stop speaking.",
   "8116a7b3d9726213": "整理转写文本",
   "6685da9a88415184": "默认关闭。仅将转写文本及附近的草稿文字发送给整理模型，不发送音频。",
   "bb43ac92ca9fb017": "指令",

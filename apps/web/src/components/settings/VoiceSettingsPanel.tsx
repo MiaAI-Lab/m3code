@@ -796,6 +796,104 @@ function useVoiceModels(prepared: PreparedConnection | null) {
 
 type VoiceModels = ReturnType<typeof useVoiceModels>;
 
+function LocalSttEndpointRows({ disabled }: { disabled: boolean }) {
+  const gt = useGT();
+  const scopedSettings = useScopedSettings();
+  const updateScopedSettings = useUpdateScopedSettings();
+  return (
+    <>
+      <SettingsRow
+        title={gt("Local STT endpoint URL")}
+        description={gt(
+          "Optional OpenAI-compatible or whisper.cpp HTTP endpoint (for example, http://127.0.0.1:8178/inference or a Spark LAN STT server). Leave blank to use built-in local models.",
+        )}
+        control={
+          <Input
+            key={scopedSettings.speechLocalEndpointUrl}
+            defaultValue={scopedSettings.speechLocalEndpointUrl}
+            disabled={disabled}
+            placeholder="http://127.0.0.1:8178/inference"
+            aria-label={gt("Local STT endpoint URL")}
+            className="@min-[32rem]/settings-row:w-64"
+            onBlur={(event) => {
+              const next = event.target.value.trim();
+              if (next !== scopedSettings.speechLocalEndpointUrl) {
+                void updateScopedSettings({ speechLocalEndpointUrl: next });
+              }
+            }}
+          />
+        }
+      />
+      {scopedSettings.speechLocalEndpointUrl.trim() ? (
+        <SettingsRow
+          title={gt("Local STT model name")}
+          description={gt("Model field sent to the local STT server (defaults to whisper-1).")}
+          control={
+            <Input
+              key={scopedSettings.speechLocalEndpointModel}
+              defaultValue={scopedSettings.speechLocalEndpointModel}
+              disabled={disabled}
+              placeholder="whisper-1"
+              aria-label={gt("Local STT model name")}
+              className="@min-[32rem]/settings-row:w-48"
+              onBlur={(event) => {
+                const next = event.target.value.trim();
+                if (next !== scopedSettings.speechLocalEndpointModel) {
+                  void updateScopedSettings({ speechLocalEndpointModel: next });
+                }
+              }}
+            />
+          }
+        />
+      ) : null}
+      <SettingsRow
+        title={gt("Local 2nd-pass cleanup endpoint URL")}
+        description={gt(
+          "Optional local OpenAI-compatible /v1/chat/completions endpoint (for example, Ollama, llama.cpp, or Spark) for Phase 2 punctuation and typo cleanup. Leave blank to use the built-in zero-API-call local cleaner.",
+        )}
+        control={
+          <Input
+            key={scopedSettings.speechLocalCleanupEndpointUrl}
+            defaultValue={scopedSettings.speechLocalCleanupEndpointUrl}
+            disabled={disabled}
+            placeholder="http://127.0.0.1:11434/v1/chat/completions"
+            aria-label={gt("Local 2nd-pass cleanup endpoint URL")}
+            className="@min-[32rem]/settings-row:w-64"
+            onBlur={(event) => {
+              const next = event.target.value.trim();
+              if (next !== scopedSettings.speechLocalCleanupEndpointUrl) {
+                void updateScopedSettings({ speechLocalCleanupEndpointUrl: next });
+              }
+            }}
+          />
+        }
+      />
+      {scopedSettings.speechLocalCleanupEndpointUrl.trim() ? (
+        <SettingsRow
+          title={gt("Local cleanup model name")}
+          description={gt("Model name sent to your local cleanup endpoint.")}
+          control={
+            <Input
+              key={scopedSettings.speechLocalCleanupModel}
+              defaultValue={scopedSettings.speechLocalCleanupModel}
+              disabled={disabled}
+              placeholder="qwen2.5:3b"
+              aria-label={gt("Local cleanup model name")}
+              className="@min-[32rem]/settings-row:w-48"
+              onBlur={(event) => {
+                const next = event.target.value.trim();
+                if (next !== scopedSettings.speechLocalCleanupModel) {
+                  void updateScopedSettings({ speechLocalCleanupModel: next });
+                }
+              }}
+            />
+          }
+        />
+      ) : null}
+    </>
+  );
+}
+
 function AdvancedSpeechSettings({
   prepared,
   catalog,
@@ -807,6 +905,7 @@ function AdvancedSpeechSettings({
   const setting = useSearchableSetting();
   const gt = useGT();
   const settings = useClientSettings();
+  const settingsScope = useOptionalSettingsScope();
   const { run, controlsDisabled, status } = catalog;
   if (!status?.supported) return null;
   const supported = status;
@@ -907,6 +1006,7 @@ function AdvancedSpeechSettings({
           </Select>
         }
       />
+      {settingsScope !== null ? <LocalSttEndpointRows disabled={controlsDisabled} /> : null}
     </AdvancedSettings>
   );
 }
@@ -1802,6 +1902,65 @@ export function VoiceSettingsPanel() {
         {prepared && <AdvancedSpeechSettings prepared={prepared} catalog={catalog} />}
       </SettingsSection>
 
+      <SettingsSection id="voice-hands-free" title={gt("Hands-free control")}>
+        <SettingsRow
+          title={gt("Voice commands")}
+          description={gt(
+            "Say “switch to Opus”, “stop generating”, “clear draft”, or end with “send it” to drive AI models by voice.",
+          )}
+          control={
+            <Switch
+              aria-label={gt("Voice commands")}
+              checked={settings.voiceCommandsEnabled}
+              onCheckedChange={(checked) =>
+                void updateClientSettings({ voiceCommandsEnabled: checked })
+              }
+            />
+          }
+        />
+        <SettingsRow
+          title={gt("Auto-send on pause")}
+          description={gt(
+            "Automatically finish recording and submit your prompt after a pause in speech.",
+          )}
+          control={
+            <Switch
+              aria-label={gt("Auto-send on pause")}
+              checked={settings.voiceAutoSend}
+              onCheckedChange={(checked) => void updateClientSettings({ voiceAutoSend: checked })}
+            />
+          }
+        />
+        {settings.voiceAutoSend ? (
+          <SettingsRow
+            title={gt("Silence pause")}
+            description={gt("How long to wait after you stop speaking before sending.")}
+            control={
+              <Select
+                value={String(settings.voiceSilenceTimeoutMs)}
+                onValueChange={(value) => {
+                  const parsed = Number(value);
+                  if (Number.isFinite(parsed) && parsed >= 800 && parsed <= 5_000) {
+                    void updateClientSettings({ voiceSilenceTimeoutMs: parsed });
+                  }
+                }}
+              >
+                <SelectTrigger size="sm" aria-label={gt("Silence pause")}>
+                  <SelectValue>{`${(settings.voiceSilenceTimeoutMs / 1000).toFixed(1)}s`}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  {[1_000, 1_500, 1_800, 2_500, 3_500].map((ms) => (
+                    <SelectItem key={ms} value={String(ms)}>
+                      {`${(ms / 1000).toFixed(1)}s`}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            }
+          />
+        ) : null}
+      </SettingsSection>
+
       <SettingsSection id="voice-dictionary" title={gt("Dictionary")}>
         <SettingsRow
           {...setting("speech-dictionary")}
@@ -1820,6 +1979,21 @@ export function VoiceSettingsPanel() {
       </SettingsSection>
 
       <SettingsSection id={setting("speech-post-processing").id} title={gt("Cleanup")}>
+        <SettingsRow
+          title={gt("Local 2nd-pass cleanup (no API call)")}
+          description={gt(
+            "Automatically fixes capitalization, punctuation, stutters, and spoken corrections locally right after you stop speaking.",
+          )}
+          control={
+            <Switch
+              aria-label={gt("Local 2nd-pass cleanup (no API call)")}
+              checked={settings.speechLocalTwoPhaseCleanup}
+              onCheckedChange={(checked) =>
+                void updateClientSettings({ speechLocalTwoPhaseCleanup: checked })
+              }
+            />
+          }
+        />
         <SettingsRow
           title={gt("Clean up transcripts")}
           description={gt(

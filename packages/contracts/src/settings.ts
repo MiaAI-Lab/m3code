@@ -606,6 +606,14 @@ export const ClientSettingsSchema = Schema.Struct({
     ),
   ),
   speechCorrectionWord: SpeechCorrectionCue.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  voiceCommandsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  voiceAutoSend: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  voiceSilenceTimeoutMs: Schema.Finite.check(
+    Schema.isGreaterThanOrEqualTo(800),
+    Schema.isLessThanOrEqualTo(5_000),
+  ).pipe(Schema.withDecodingDefault(Effect.succeed(1_800))),
+  // Local 2nd-pass transcript polish (capitals, punctuation, typos) with zero external API calls.
+  speechLocalTwoPhaseCleanup: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   // A locale code or "system". Open string so new locales and downgrades need no migration.
   language: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed("en"))),
   snapShotEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -1474,6 +1482,12 @@ export const ServerSettings = Schema.Struct({
   speechModelUnloadTimeout: SpeechModelUnloadTimeout.pipe(
     Schema.withDecodingDefault(Effect.succeed("min_15")),
   ),
+  // Optional local/LAN OpenAI-compatible or whisper.cpp HTTP STT endpoint (e.g. http://127.0.0.1:8178/inference).
+  speechLocalEndpointUrl: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  speechLocalEndpointModel: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  // Optional local/LAN OpenAI-compatible /v1/chat/completions endpoint for Phase 2 transcript cleanup.
+  speechLocalCleanupEndpointUrl: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  speechLocalCleanupModel: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   // Vocabulary shared by everyone who dictates in a project; it lives with the project's environment.
   speechProjectCustomWords: SpeechCustomWords.pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   // Null follows textGenerationModelSelection; a selection pins transcript cleanup to its own model.
@@ -1954,6 +1968,10 @@ export const ServerSettingsPatch = Schema.Struct({
   speechModelId: Schema.optionalKey(Schema.String),
   speechAcceleration: Schema.optionalKey(SpeechAcceleration),
   speechModelUnloadTimeout: Schema.optionalKey(SpeechModelUnloadTimeout),
+  speechLocalEndpointUrl: Schema.optionalKey(Schema.String),
+  speechLocalEndpointModel: Schema.optionalKey(Schema.String),
+  speechLocalCleanupEndpointUrl: Schema.optionalKey(Schema.String),
+  speechLocalCleanupModel: Schema.optionalKey(Schema.String),
   speechProjectCustomWords: Schema.optionalKey(SpeechCustomWords),
   speechPostProcessingModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   projectAgentBrowserAccessOverrides: Schema.optionalKey(
@@ -2235,6 +2253,12 @@ export const ClientSettingsPatch = Schema.Struct({
   speechRemoveFillerWords: Schema.optionalKey(Schema.Boolean),
   speechPostProcessingPrompt: Schema.optionalKey(SpeechPostProcessingPromptSettings),
   speechCorrectionWord: Schema.optionalKey(SpeechCorrectionCue),
+  voiceCommandsEnabled: Schema.optionalKey(Schema.Boolean),
+  voiceAutoSend: Schema.optionalKey(Schema.Boolean),
+  voiceSilenceTimeoutMs: Schema.optionalKey(
+    Schema.Finite.check(Schema.isGreaterThanOrEqualTo(800), Schema.isLessThanOrEqualTo(5_000)),
+  ),
+  speechLocalTwoPhaseCleanup: Schema.optionalKey(Schema.Boolean),
   language: Schema.optionalKey(Schema.String),
   snapShotEnabled: Schema.optionalKey(Schema.Boolean),
   snapShotIncludeAccessibility: Schema.optionalKey(Schema.Boolean),

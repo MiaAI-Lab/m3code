@@ -13,6 +13,11 @@ import * as ServerSettings from "../serverSettings.ts";
 import * as TextGeneration from "../textGeneration/TextGeneration.ts";
 import { buildTranscriptionPostProcessingPrompt } from "../textGeneration/TranscriptionPostProcessing.ts";
 import { applySpeechAliases } from "./customWords.ts";
+import {
+  cleanTranscriptLocally,
+  cleanTranscriptWithLocalEndpoint,
+  parseLocalCleanupEndpoint,
+} from "./localCleanup.ts";
 import { SpeechOperationError } from "./SpeechService.ts";
 
 export class SpeechPostProcessing extends Context.Service<
@@ -39,18 +44,49 @@ const make = Effect.gen(function* () {
         const instructions =
           (mode === "custom" ? customInstructions.trim() : "") ||
           DEFAULT_SPEECH_POST_PROCESSING_PROMPT;
+        const localFallback = () =>
+          cleanTranscriptLocally(input.transcript, {
+            customWords: input.options.speechCustomWords,
+            correctionWord: input.options.speechCorrectionWord,
+          });
+        const localEndpoint = parseLocalCleanupEndpoint(
+          settings.speechLocalCleanupEndpointUrl,
+          settings.speechLocalCleanupModel,
+        );
+        if (localEndpoint) {
+          const text = yield* Effect.tryPromise({
+            try: (signal) =>
+              cleanTranscriptWithLocalEndpoint(
+                localEndpoint,
+                input.transcript,
+                instructions,
+                input.options.speechCustomWords,
+                signal,
+              ),
+            catch: () => null,
+          }).pipe(Effect.orElseSucceed(localFallback));
+          return { text: text.length > 0 ? text : input.transcript };
+        }
+        const hasConfiguredModel =
+          settings.speechPostProcessingModelSelection !== null ||
+          settings.textGenerationModelSelection !== null;
+        if (!hasConfiguredModel) {
+          return { text: localFallback() };
+        }
         // Providers run in a working directory; cleanup must not read a checkout.
         const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-voice-cleanup-" });
-        const generated = yield* textGeneration.generateTranscriptionPostProcessing({
-          cwd,
-          prompt: buildTranscriptionPostProcessingPrompt(
-            instructions,
-            input.transcript,
-            input.draft,
-            input.options.speechCorrectionWord,
-          ),
-          modelSelection: resolveSpeechPostProcessingModelSelection(settings, providers),
-        });
+        const generated = yield* textGeneration
+          .generateTranscriptionPostProcessing({
+            cwd,
+            prompt: buildTranscriptionPostProcessingPrompt(
+              instructions,
+              input.transcript,
+              input.draft,
+              input.options.speechCorrectionWord,
+            ),
+            modelSelection: resolveSpeechPostProcessingModelSelection(settings, providers),
+          })
+          .pipe(Effect.orElseSucceed(() => ({ transcription: localFallback() })));
         const text = generated.transcription.trim();
         return {
           text:

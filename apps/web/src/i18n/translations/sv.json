@@ -3214,10 +3214,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "på datorn som öppnade den här sidan"
-      ],
+      "c": [" ", "på datorn som öppnade den här sidan"],
       "i": 2,
       "t": "span"
     }
@@ -3229,10 +3226,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "· den som kör den får den här åtkomsten"
-      ],
+      "c": [" ", "· den som kör den får den här åtkomsten"],
       "i": 2,
       "t": "span"
     }
@@ -3348,6 +3342,9 @@
   "95ee62a0d6968b89": "Skicka meddelande",
   "164d3295a763dbad": "Ögonblicksbilden är inte längre tillgänglig.",
   "f77ce9bc81a68882": "Ögonblicksbilden är inte redo att kopieras.",
+  "58cabf2ead969981": "Voice: Stopped turn",
+  "40553a2803cd77bd": "Voice: Cleared draft",
+  "688841dee65b495c": "Voice: Switched to {model}",
   "68a4461e56df0896": "Förbereder röstinmatning",
   "4bc6e68c58cbb173": "Hämtar fortfarande bifogad kontext till det här meddelandet.",
   "62bf4adef45b9830": "Skicka igen när dess etikett har lästs in.",
@@ -11427,6 +11424,14 @@
   "5e133e6443a2c3ef": "Modell för rensning av transkriptioner, till exempel en billigare eller snabbare. När den är inaktiverad används modellen för textgenerering som konfigurerats för miljön.",
   "5c0e844264a2e844": "Använd en separat rensningsmodell",
   "62c6adee995fa214": "Kunde inte läsa in transkriberingsmodeller",
+  "4170a089def95106": "Local STT endpoint URL",
+  "7372037f12cef7fa": "Optional OpenAI-compatible or whisper.cpp HTTP endpoint (for example, http://127.0.0.1:8178/inference or a Spark LAN STT server). Leave blank to use built-in local models.",
+  "3f4d73157d7e1bbd": "Local STT model name",
+  "c8ace188ab296e00": "Model field sent to the local STT server (defaults to whisper-1).",
+  "f92b53170d3befb8": "Local 2nd-pass cleanup endpoint URL",
+  "aacbb703bcc5c618": "Optional local OpenAI-compatible /v1/chat/completions endpoint (for example, Ollama, llama.cpp, or Spark) for Phase 2 punctuation and typo cleanup. Leave blank to use the built-in zero-API-call local cleaner.",
+  "b949144b6ef6c480": "Local cleanup model name",
+  "d5bae3edb768d1f8": "Model name sent to your local cleanup endpoint.",
   "293c586d85558297": "Strömmande transkribering",
   "65c7c7aeb678a56b": "Transkribera under inspelningen. Stäng av för att transkribera efter att du stoppat, vilket kan hjälpa när direkttranskriberingen ligger efter.",
   "04375f4dac3d39ee": "Den här modellen stöder inte inbyggd strömning.",
@@ -11488,9 +11493,18 @@
   "adde9666f7fb8c5d": "Ta bort utfyllnadsord",
   "95ac70c5da02c46a": "Inte tillgängligt med Apple Speech.",
   "943ea47b1df48f12": "Ta bort ”öh” och ”ehm” från transkriptioner.",
+  "6e0937fb9fa87356": "Hands-free control",
+  "f77671f71c7e83f1": "Voice commands",
+  "e561bf178715f035": "Say “switch to Opus”, “stop generating”, “clear draft”, or end with “send it” to drive AI models by voice.",
+  "bbf5c2c487c62cad": "Auto-send on pause",
+  "1ee0e1a3e4784e51": "Automatically finish recording and submit your prompt after a pause in speech.",
+  "330d748e00faa418": "Silence pause",
+  "8615a621c28bb2df": "How long to wait after you stop speaking before sending.",
   "e1e054a313ece9d0": "Ordlista",
   "79c4100c78265c98": "Din ordlista",
   "52da2d9f926e4ede": "Namn och termer som ska stavas på ditt sätt, sparade på den här enheten.",
+  "0221a43edf5adf25": "Local 2nd-pass cleanup (no API call)",
+  "8f9938d54f9f87ac": "Automatically fixes capitalization, punctuation, stutters, and spoken corrections locally right after you stop speaking.",
   "8116a7b3d9726213": "Rensa transkriptioner",
   "6685da9a88415184": "Av som standard. Skickar transkriptionen och närliggande utkasttext, aldrig ljud, till rensningsmodellen.",
   "bb43ac92ca9fb017": "Instruktioner",
