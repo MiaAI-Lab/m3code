@@ -86,8 +86,6 @@ const ModelManifestSchema = ModelManifestEnvelopeSchema.pipe(
 );
 export type ModelManifestData = typeof ModelManifestSchema.Type;
 
-const decodeManifest = Schema.decodeUnknownEffect(ModelManifestSchema);
-
 export const BUNDLED_MODEL_MANIFEST: ModelManifestData =
   Schema.decodeUnknownSync(ModelManifestSchema)(bundledManifestJson);
 
@@ -99,12 +97,6 @@ export const providerCompatibility = (
 ) =>
   resolveProviderCompatibility(manifest.compatibility, driver, version) ??
   resolveProviderCompatibility(BUNDLED_MODEL_MANIFEST.compatibility, driver, version);
-
-function manifestUpdatedAtMs(manifest: ModelManifestData): number {
-  if (manifest.updatedAt === undefined) return 0;
-  const parsed = Date.parse(manifest.updatedAt);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
 
 export function resolveProviderCatalog(
   manifest: ModelManifestData,
@@ -147,21 +139,6 @@ export function resolveProviderCatalog(
 
   return { models, defaultChatModel: catalog.defaults?.chat };
 }
-
-const ManifestCacheFile = Schema.Struct({
-  fetchedAtMs: Schema.Number,
-  manifest: ModelManifestSchema,
-});
-const decodeManifestCache = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(
-    ManifestCacheFile as unknown as Schema.Codec<typeof ManifestCacheFile.Type>,
-  ),
-);
-export const encodeManifestCache = Schema.encodeEffect(
-  Schema.fromJsonString(
-    ManifestCacheFile as unknown as Schema.Codec<typeof ManifestCacheFile.Type>,
-  ),
-);
 
 export class ModelManifest extends Context.Service<
   ModelManifest,
