@@ -96,9 +96,13 @@ jobs:
             detail="Merge was clean but checks failed. Nothing was pushed to $TARGET_BRANCH; the merge is on branch sync/upstream:"$'\n\n```\n'"$(cat "$RUNNER_TEMP/guard.txt")"$'\n```'
           fi
           body="$detail"$'\n\n'"Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"$'\n\n'"Resolve locally: \`git fetch upstream && git merge upstream/$UPSTREAM_BRANCH\`"
-          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
-          else
-            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          printf '## %s\n\n%s\n' "$title" "$body" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY" --jq .has_issues)" = true ]; then
+            existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+            fi
           fi
+          exit 1
