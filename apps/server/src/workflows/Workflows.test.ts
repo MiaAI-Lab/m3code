@@ -36,10 +36,10 @@ import {
   workflow,
 } from "./workflow.ts";
 import { type AgentResult, WorkflowAgentError, WorkflowAgents } from "./WorkflowAgents.ts";
-import WorkflowsMigration from "../persistence/Migrations/110_Workflows.ts";
-import WorkflowSkippedRunsMigration from "../persistence/Migrations/113_WorkflowSkippedRuns.ts";
+import WorkflowsMigration from "../persistence/Migrations/133_Workflows.ts";
+import WorkflowSkippedRunsMigration from "../persistence/Migrations/136_WorkflowSkippedRuns.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import WorkflowRunTagsMigration from "../persistence/Migrations/115_WorkflowRunTags.ts";
+import WorkflowRunTagsMigration from "../persistence/Migrations/138_WorkflowRunTags.ts";
 import * as WorkflowEngine from "./WorkflowEngine.ts";
 import {
   Issue,

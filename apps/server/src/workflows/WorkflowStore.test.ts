@@ -12,10 +12,10 @@ import * as SqlClient from "effect/sql/SqlClient";
 import * as Statement from "effect/sql/Statement";
 import * as TestClock from "effect/testing/TestClock";
 
-import WorkflowsMigration from "../persistence/Migrations/110_Workflows.ts";
-import WorkflowSkippedRunsMigration from "../persistence/Migrations/113_WorkflowSkippedRuns.ts";
-import WorkflowRunIndexesMigration from "../persistence/Migrations/114_WorkflowRunIndexes.ts";
-import WorkflowRunTagsMigration from "../persistence/Migrations/115_WorkflowRunTags.ts";
+import WorkflowsMigration from "../persistence/Migrations/133_Workflows.ts";
+import WorkflowSkippedRunsMigration from "../persistence/Migrations/136_WorkflowSkippedRuns.ts";
+import WorkflowRunIndexesMigration from "../persistence/Migrations/137_WorkflowRunIndexes.ts";
+import WorkflowRunTagsMigration from "../persistence/Migrations/138_WorkflowRunTags.ts";
 import * as MilestoneHub from "../milestones/MilestoneHub.ts";
 import * as WorkflowStore from "./WorkflowStore.ts";
 
