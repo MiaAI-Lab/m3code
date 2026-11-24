@@ -3725,6 +3725,9 @@
   "3b969d1b0381a986": "{subtitle} {reason}",
   "5fc597e1e2a7ec55": "Selecciona un proyecto con un checkout en un entorno conectado.",
   "83b95c78e73eaa43": "Usa el filtro de arriba para seleccionar un entorno conectado.",
+  "515f8ffb80cca95b": "Entorno predeterminado",
+  "e88c9d8769544731": "Automático",
+  "fbf24a7de4675ac3": "Usar tu último entorno usado o el principal.",
   "d1d1342ccb83a14b": "Espacio de trabajo predeterminado",
   "369554d95bf3fc1e": "Permisos predeterminados",
   "3426d304db392999": "Streaming de respuestas",
@@ -3939,6 +3942,7 @@
   "cee585904f047fc4": "colores",
   "10241b1e31ad2ca6": "tamaño de fuente",
   "85d3fddfc1505349": "tamaño del texto",
+  "47a79b2ff36dc0d5": "fuente monoespaciada",
   "0831827149acd58a": "código",
   "6d514c57a504227d": "diffs",
   "2fc62e4e9dce9414": "terminal",
@@ -5556,6 +5560,7 @@
   "bf29303038cb6705": "Salto de línea",
   "2aba3a08e7d6bc35": "Terminal",
   "77d16b9b4b86c88f": "Texto",
+  "843d809009912d89": "Usar fuente monoespaciada",
   "eeca51fe648d9317": "Renderizar matemáticas",
   "e148604db412abfb": "Arboleda",
   "3b06efe927b51386": "Océano",
@@ -5578,8 +5583,5 @@
   "ad208e3e32c85029": "Ocultar todo",
   "3328503592789bed": "Zen",
   "856812e7e1fc445e": "Llamadas a herramientas en el chat",
-  "8d545d54c0a9e950": "Oculta los comandos, ediciones y búsquedas que ejecutan los agentes. Ocultar las correctas mantiene los fallos. Zen solo muestra las respuestas finales. Las aprobaciones, preguntas y errores siempre se muestran.",
-  "515f8ffb80cca95b": "Entorno predeterminado",
-  "e88c9d8769544731": "Automático",
-  "fbf24a7de4675ac3": "Usar tu último entorno usado o el principal."
+  "8d545d54c0a9e950": "Oculta los comandos, ediciones y búsquedas que ejecutan los agentes. Ocultar las correctas mantiene los fallos. Zen solo muestra las respuestas finales. Las aprobaciones, preguntas y errores siempre se muestran."
 }

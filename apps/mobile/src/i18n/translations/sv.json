@@ -3731,6 +3731,9 @@
   "3b969d1b0381a986": "{subtitle} {reason}",
   "5fc597e1e2a7ec55": "Välj ett projekt med en utcheckning i en ansluten miljö.",
   "83b95c78e73eaa43": "Använd filtret ovan för att välja en ansluten miljö.",
+  "515f8ffb80cca95b": "Standardmiljö",
+  "e88c9d8769544731": "Automatisk",
+  "fbf24a7de4675ac3": "Använd din senast använda eller primära miljö.",
   "d1d1342ccb83a14b": "Standardarbetsyta",
   "369554d95bf3fc1e": "Standardbehörigheter",
   "3426d304db392999": "Strömning av svar",
@@ -3945,6 +3948,7 @@
   "cee585904f047fc4": "färger",
   "10241b1e31ad2ca6": "teckenstorlek",
   "85d3fddfc1505349": "textstorlek",
+  "47a79b2ff36dc0d5": "monospace-teckensnitt",
   "0831827149acd58a": "kod",
   "6d514c57a504227d": "diffar",
   "2fc62e4e9dce9414": "terminal",
@@ -5562,6 +5566,7 @@
   "bf29303038cb6705": "Radbrytning",
   "2aba3a08e7d6bc35": "Terminal",
   "77d16b9b4b86c88f": "Text",
+  "843d809009912d89": "Använd monospace-teckensnitt",
   "eeca51fe648d9317": "Rendera matematik",
   "e148604db412abfb": "Lund",
   "3b06efe927b51386": "Hav",
@@ -5584,8 +5589,5 @@
   "ad208e3e32c85029": "Dölj alla",
   "3328503592789bed": "Zen",
   "856812e7e1fc445e": "Verktygsanrop i chatten",
-  "8d545d54c0a9e950": "Dölj kommandon, redigeringar och sökningar som agenter kör. Dölj lyckade behåller misslyckanden. Zen visar bara slutliga svar. Godkännanden, frågor och fel visas alltid.",
-  "515f8ffb80cca95b": "Standardmiljö",
-  "e88c9d8769544731": "Automatisk",
-  "fbf24a7de4675ac3": "Använd din senast använda eller primära miljö."
+  "8d545d54c0a9e950": "Dölj kommandon, redigeringar och sökningar som agenter kör. Dölj lyckade behåller misslyckanden. Zen visar bara slutliga svar. Godkännanden, frågor och fel visas alltid."
 }

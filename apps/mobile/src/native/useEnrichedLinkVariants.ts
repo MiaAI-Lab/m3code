@@ -164,7 +164,10 @@ export function useEnrichedLinkVariants(
                 paddingHorizontal: 5,
                 paddingVertical: 2,
               },
-              fontFamily: chipForeground ? FONT_FAMILIES.medium : textStyle.fontFamily,
+              fontFamily:
+                chipForeground && textStyle.fontFamily === FONT_FAMILIES.regular
+                  ? FONT_FAMILIES.medium
+                  : textStyle.fontFamily,
               color: chipForeground ?? link.color ?? textStyle.fileTextColor,
               underline: false,
               backgroundColor: "transparent",

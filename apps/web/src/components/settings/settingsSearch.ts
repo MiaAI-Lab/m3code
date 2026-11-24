@@ -453,6 +453,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("typography family size monospace output")],
   },
   {
+    id: "use-monospace-font",
+    title: msg("Use monospace font"),
+    to: "/settings/appearance",
+    searchTerms: [msg("typography monospace font entire interface")],
+  },
+  {
     id: "separate-fonts",
     title: msg("Separate fonts"),
     to: "/settings/appearance",

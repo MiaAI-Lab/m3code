@@ -3732,6 +3732,9 @@
   "3b969d1b0381a986": "{subtitle} {reason}",
   "5fc597e1e2a7ec55": "Select a project with a checkout on a connected environment.",
   "83b95c78e73eaa43": "Use the filter above to select a connected environment.",
+  "515f8ffb80cca95b": "Default environment",
+  "e88c9d8769544731": "Automatic",
+  "fbf24a7de4675ac3": "Use your last used or primary environment.",
   "d1d1342ccb83a14b": "Default workspace",
   "369554d95bf3fc1e": "Default permissions",
   "3426d304db392999": "Response streaming",
@@ -3946,6 +3949,7 @@
   "cee585904f047fc4": "colors",
   "10241b1e31ad2ca6": "font size",
   "85d3fddfc1505349": "text size",
+  "47a79b2ff36dc0d5": "monospace font",
   "0831827149acd58a": "code",
   "6d514c57a504227d": "diffs",
   "2fc62e4e9dce9414": "terminal",
@@ -5564,6 +5568,7 @@
   "bf29303038cb6705": "Word break",
   "2aba3a08e7d6bc35": "Terminal",
   "77d16b9b4b86c88f": "Text",
+  "843d809009912d89": "Use monospace font",
   "eeca51fe648d9317": "Render math",
   "e148604db412abfb": "Grove",
   "3b06efe927b51386": "Ocean",
@@ -5586,8 +5591,5 @@
   "ad208e3e32c85029": "Hide all",
   "3328503592789bed": "Zen",
   "856812e7e1fc445e": "Tool calls in chat",
-  "8d545d54c0a9e950": "Hide the commands, edits, and searches agents run. Hide successful keeps failures. Zen shows only final answers. Approvals, questions, and errors always show.",
-  "515f8ffb80cca95b": "Default environment",
-  "e88c9d8769544731": "Automatic",
-  "fbf24a7de4675ac3": "Use your last used or primary environment."
+  "8d545d54c0a9e950": "Hide the commands, edits, and searches agents run. Hide successful keeps failures. Zen shows only final answers. Approvals, questions, and errors always show."
 }

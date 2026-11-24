@@ -3730,6 +3730,9 @@
   "3b969d1b0381a986": "{subtitle} {reason}",
   "5fc597e1e2a7ec55": "Wähle ein Projekt mit einem Checkout in einer verbundenen Umgebung.",
   "83b95c78e73eaa43": "Verwende den Filter oben, um eine verbundene Umgebung auszuwählen.",
+  "515f8ffb80cca95b": "Standardumgebung",
+  "e88c9d8769544731": "Automatisch",
+  "fbf24a7de4675ac3": "Zuletzt genutzte oder primäre Umgebung verwenden.",
   "d1d1342ccb83a14b": "Standard-Arbeitsbereich",
   "369554d95bf3fc1e": "Standardberechtigungen",
   "3426d304db392999": "Antwort-Streaming",
@@ -3944,6 +3947,7 @@
   "cee585904f047fc4": "farben",
   "10241b1e31ad2ca6": "schriftgröße",
   "85d3fddfc1505349": "textgröße",
+  "47a79b2ff36dc0d5": "Monospace-Schriftart",
   "0831827149acd58a": "code",
   "6d514c57a504227d": "diffs",
   "2fc62e4e9dce9414": "terminal",
@@ -5562,6 +5566,7 @@
   "bf29303038cb6705": "Wortumbruch",
   "2aba3a08e7d6bc35": "Terminal",
   "77d16b9b4b86c88f": "Text",
+  "843d809009912d89": "Monospace-Schriftart verwenden",
   "eeca51fe648d9317": "Formeln darstellen",
   "e148604db412abfb": "Hain",
   "3b06efe927b51386": "Ozean",
@@ -5584,8 +5589,5 @@
   "ad208e3e32c85029": "Alle ausblenden",
   "3328503592789bed": "Zen",
   "856812e7e1fc445e": "Tool-Aufrufe im Chat",
-  "8d545d54c0a9e950": "Die Befehle, Bearbeitungen und Suchen ausblenden, die Agenten ausführen. „Erfolgreiche ausblenden“ behält Fehler. „Zen“ zeigt nur endgültige Antworten. Genehmigungen, Fragen und Fehler werden immer angezeigt.",
-  "515f8ffb80cca95b": "Standardumgebung",
-  "e88c9d8769544731": "Automatisch",
-  "fbf24a7de4675ac3": "Zuletzt genutzte oder primäre Umgebung verwenden."
+  "8d545d54c0a9e950": "Die Befehle, Bearbeitungen und Suchen ausblenden, die Agenten ausführen. „Erfolgreiche ausblenden“ behält Fehler. „Zen“ zeigt nur endgültige Antworten. Genehmigungen, Fragen und Fehler werden immer angezeigt."
 }

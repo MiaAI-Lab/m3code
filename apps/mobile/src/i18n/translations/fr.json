@@ -3725,6 +3725,9 @@
   "3b969d1b0381a986": "{subtitle} {reason}",
   "5fc597e1e2a7ec55": "Sélectionnez un projet qui a un checkout dans un environnement connecté.",
   "83b95c78e73eaa43": "Utilisez le filtre ci-dessus pour sélectionner un environnement connecté.",
+  "515f8ffb80cca95b": "Environnement par défaut",
+  "e88c9d8769544731": "Automatique",
+  "fbf24a7de4675ac3": "Utiliser le dernier environnement utilisé ou l'environnement principal.",
   "d1d1342ccb83a14b": "Espace de travail par défaut",
   "369554d95bf3fc1e": "Autorisations par défaut",
   "3426d304db392999": "Affichage progressif des réponses",
@@ -3939,6 +3942,7 @@
   "cee585904f047fc4": "couleurs",
   "10241b1e31ad2ca6": "taille de police",
   "85d3fddfc1505349": "taille du texte",
+  "47a79b2ff36dc0d5": "police à chasse fixe",
   "0831827149acd58a": "code",
   "6d514c57a504227d": "diffs",
   "2fc62e4e9dce9414": "terminal",
@@ -5556,6 +5560,7 @@
   "bf29303038cb6705": "Coupure des mots",
   "2aba3a08e7d6bc35": "Terminal",
   "77d16b9b4b86c88f": "Texte",
+  "843d809009912d89": "Utiliser une police à chasse fixe",
   "eeca51fe648d9317": "Afficher les formules",
   "e148604db412abfb": "Bosquet",
   "3b06efe927b51386": "Océan",
@@ -5578,8 +5583,5 @@
   "ad208e3e32c85029": "Tout masquer",
   "3328503592789bed": "Zen",
   "856812e7e1fc445e": "Appels d’outils dans la discussion",
-  "8d545d54c0a9e950": "Masque les commandes, modifications et recherches lancées par les agents. Masquer les réussis garde les échecs. Zen n’affiche que les réponses finales. Les approbations, questions et erreurs s’affichent toujours.",
-  "515f8ffb80cca95b": "Environnement par défaut",
-  "e88c9d8769544731": "Automatique",
-  "fbf24a7de4675ac3": "Utiliser le dernier environnement utilisé ou l'environnement principal."
+  "8d545d54c0a9e950": "Masque les commandes, modifications et recherches lancées par les agents. Masquer les réussis garde les échecs. Zen n’affiche que les réponses finales. Les approbations, questions et erreurs s’affichent toujours."
 }
