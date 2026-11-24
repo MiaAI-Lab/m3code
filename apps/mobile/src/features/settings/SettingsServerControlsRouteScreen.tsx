@@ -1,8 +1,12 @@
+import { useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { msg, T, useGT, useMessages, Var } from "gt-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { SettingsRow } from "./components/SettingsRow";
-import { AuthSettingsWriteScope } from "@t3tools/contracts";
+import { AuthSettingsWriteScope, type EnvironmentId } from "@t3tools/contracts";
 import { readEnvironmentScope, useEnvironmentsWithScope } from "../../state/session";
+import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
+import { useEnvironments } from "../../state/use-remote-environment-registry";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { AppText as Text } from "../../components/ui/AppText";
 import {
@@ -190,6 +194,14 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { selectedTargets, projectGroups, selectedProjectKey } = useSettingsEnvironmentFilter();
+  const { environments } = useEnvironments();
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const defaultThreadEnvironmentId = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.defaultThreadEnvironmentId ?? null)
+    : null;
+  const setDefaultThreadEnvironmentId = (environmentId: EnvironmentId | null) => {
+    void saveMobilePreferences({ defaultThreadEnvironmentId: environmentId });
+  };
   const selectedProject = projectGroups.find((group) => group.key === selectedProjectKey);
   const writableEnvironments = useEnvironmentsWithScope(selectedTargets, AuthSettingsWriteScope);
   const projectSelected = selectedProjectKey !== null;
@@ -324,6 +336,26 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
             ) : null}
             {props.page === "threads" ? (
               <>
+                {!projectSelected && environments.length > 0 ? (
+                  <SettingsSection title={gt("Default environment")}>
+                    <SettingsChoiceRow
+                      label={gt("Automatic")}
+                      description={gt("Use your last used or primary environment.")}
+                      selected={defaultThreadEnvironmentId === null}
+                      separated={false}
+                      onPress={() => setDefaultThreadEnvironmentId(null)}
+                    />
+                    {environments.map((environment) => (
+                      <SettingsChoiceRow
+                        key={environment.environmentId}
+                        label={environment.label}
+                        selected={defaultThreadEnvironmentId === environment.environmentId}
+                        separated
+                        onPress={() => setDefaultThreadEnvironmentId(environment.environmentId)}
+                      />
+                    ))}
+                  </SettingsSection>
+                ) : null}
                 <SettingsSection
                   title={gt("Default workspace")}
                   footer={managed("defaultThreadEnvMode")}

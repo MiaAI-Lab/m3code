@@ -49,7 +49,7 @@
   "929a11e234f6e5d9": "Installiere die Azure-Kommandozeilentools ({cli}) und aktiviere dann die Azure-DevOps-Unterstützung mit {command}.",
   "ad599e9de33538dd": "Füge unter Einstellungen → Versionskontrolle & Issues ein Bitbucket-Token hinzu.",
   "d810ecd91e8cf9d0": "Installiere die Origin CLI mit {install} und führe dann {login} aus.",
-  "eb0f60ef4f92ab7d": "Installiere {fj} 0.6 oder neuer von {fjUrl} und führe {fjLogin} aus, oder installiere {tea} 0.16 oder neuer von {teaUrl} und führe {teaLogin} für jeden Forgejo- oder Gitea-Server aus.",
+  "e77dfe9fc65aee9c": "Installiere {fj} 0.6 oder neuer von {fjUrl} und führe {fjLogin} aus, oder installiere {gt} von {gtUrl} und führe {gtLogin} für jeden Forgejo- oder Gitea-Server aus.",
   "d026a85e2e50e675": "Installiere die GitCafe CLI mit {install} und führe dann {login} aus, speichere ein Token in den Einstellungen oder setze {variable} auf dem Server.",
   "79d776428f4d0650": "Die Datei konnte nicht geladen werden. Verbinde dich erneut und versuch es noch einmal.",
   "3ea34cbb1ca5ba9b": "Vorschau abgebrochen.",
@@ -12098,5 +12098,10 @@
   "faa3bb26abb39c93": "Review-Leitfaden fehlgeschlagen",
   "b7df38b7d8792d78": "Leitfaden öffnen",
   "9e91e9a77b664e4e": "Review-Leitfaden konnte nicht gestartet werden",
-  "5e85e163a59abec5": "modell api api-schlüssel openai openrouter llm gateway anthropic ollama lm studio eigener endpunkt basis-url thread-titel commit-nachrichten"
+  "5e85e163a59abec5": "modell api api-schlüssel openai openrouter llm gateway anthropic ollama lm studio eigener endpunkt basis-url thread-titel commit-nachrichten",
+  "531f72b2bd297543": "Standardumgebung für neue Threads. Automatisch verwendet die zuletzt genutzte oder primäre Umgebung.",
+  "afd6fde0d17ff8a8": "Standardumgebung auf Automatisch zurücksetzen",
+  "5ed0e86a59502f46": "Standard-Thread-Umgebung",
+  "5f35cdb6701a255d": "Automatisch",
+  "3785db86873e6d44": "Standard-Thread-Umgebung neue Threads Maschine Server Host"
 }

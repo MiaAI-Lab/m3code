@@ -49,7 +49,7 @@
   "929a11e234f6e5d9": "Install the Azure command-line tools ({cli}), then enable Azure DevOps support with {command}.",
   "ad599e9de33538dd": "Add a Bitbucket token in Settings → Source control & issues.",
   "d810ecd91e8cf9d0": "Install the Origin CLI with {install}, then run {login}.",
-  "eb0f60ef4f92ab7d": "Install {fj} 0.6 or later from {fjUrl} and run {fjLogin}, or install {tea} 0.16 or later from {teaUrl} and run {teaLogin} for each Forgejo or Gitea server.",
+  "e77dfe9fc65aee9c": "Install {fj} 0.6 or later from {fjUrl} and run {fjLogin}, or install {gt} from {gtUrl} and run {gtLogin} for each Forgejo or Gitea server.",
   "d026a85e2e50e675": "Install the GitCafe CLI with {install}, then run {login}, save a token in Settings, or set {variable} on the server.",
   "79d776428f4d0650": "The file could not be loaded. Reconnect and try again.",
   "3ea34cbb1ca5ba9b": "Preview cancelled.",
@@ -12107,5 +12107,10 @@
   "faa3bb26abb39c93": "Review guide failed",
   "b7df38b7d8792d78": "Open guide",
   "9e91e9a77b664e4e": "Could not start a review guide",
-  "5e85e163a59abec5": "model api api key openai openrouter llm gateway anthropic ollama lm studio custom endpoint base url thread titles commit messages"
+  "5e85e163a59abec5": "model api api key openai openrouter llm gateway anthropic ollama lm studio custom endpoint base url thread titles commit messages",
+  "531f72b2bd297543": "Default environment for new threads. Automatic uses your last used or primary environment.",
+  "afd6fde0d17ff8a8": "Reset default environment to automatic",
+  "5ed0e86a59502f46": "Default thread environment",
+  "5f35cdb6701a255d": "Automatic",
+  "3785db86873e6d44": "default thread environment new threads machine server host"
 }

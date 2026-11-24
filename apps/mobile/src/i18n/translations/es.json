@@ -49,7 +49,7 @@
   "929a11e234f6e5d9": "Instala las herramientas de línea de comandos de Azure ({cli}) y activa la compatibilidad con Azure DevOps con {command}.",
   "ad599e9de33538dd": "Añade un token de Bitbucket en Ajustes → Control de versiones e issues.",
   "d810ecd91e8cf9d0": "Instala la CLI de Origin con {install} y ejecuta {login}.",
-  "eb0f60ef4f92ab7d": "Instala {fj} 0.6 o posterior desde {fjUrl} y ejecuta {fjLogin}, o instala {tea} 0.16 o posterior desde {teaUrl} y ejecuta {teaLogin} para cada servidor de Forgejo o Gitea.",
+  "e77dfe9fc65aee9c": "Instala {fj} 0.6 o posterior desde {fjUrl} y ejecuta {fjLogin}, o instala {gt} desde {gtUrl} y ejecuta {gtLogin} para cada servidor de Forgejo o Gitea.",
   "d026a85e2e50e675": "Instala la CLI de GitCafe con {install} y ejecuta {login}, guarda un token en Ajustes o define {variable} en el servidor.",
   "79d776428f4d0650": "No se pudo cargar el archivo. Vuelve a conectarte e inténtalo de nuevo.",
   "3ea34cbb1ca5ba9b": "Vista previa cancelada.",
@@ -5326,5 +5326,8 @@
   "ad208e3e32c85029": "Ocultar todo",
   "3328503592789bed": "Zen",
   "856812e7e1fc445e": "Llamadas a herramientas en el chat",
-  "8d545d54c0a9e950": "Oculta los comandos, ediciones y búsquedas que ejecutan los agentes. Ocultar las correctas mantiene los fallos. Zen solo muestra las respuestas finales. Las aprobaciones, preguntas y errores siempre se muestran."
+  "8d545d54c0a9e950": "Oculta los comandos, ediciones y búsquedas que ejecutan los agentes. Ocultar las correctas mantiene los fallos. Zen solo muestra las respuestas finales. Las aprobaciones, preguntas y errores siempre se muestran.",
+  "515f8ffb80cca95b": "Entorno predeterminado",
+  "e88c9d8769544731": "Automático",
+  "fbf24a7de4675ac3": "Usar tu último entorno usado o el principal."
 }

@@ -544,6 +544,22 @@ describe("voice settings", () => {
   });
 });
 
+describe("ClientSettings.defaultThreadEnvironmentId", () => {
+  it("defaults to null (automatic) and accepts an environment id or null in patches", () => {
+    expect(decodeClientSettings({}).defaultThreadEnvironmentId).toBeNull();
+    expect(
+      decodeClientSettings({ defaultThreadEnvironmentId: "env-spark" }).defaultThreadEnvironmentId,
+    ).toBe("env-spark");
+    expect(
+      decodeClientSettingsPatch({ defaultThreadEnvironmentId: "env-spark" })
+        .defaultThreadEnvironmentId,
+    ).toBe("env-spark");
+    expect(
+      decodeClientSettingsPatch({ defaultThreadEnvironmentId: null }).defaultThreadEnvironmentId,
+    ).toBeNull();
+  });
+});
+
 describe("server model preferences", () => {
   it("distinguishes unmigrated lists from deliberately cleared lists", () => {
     expect(decodeServerSettings({})).toMatchObject({

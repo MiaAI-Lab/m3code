@@ -49,7 +49,7 @@
   "929a11e234f6e5d9": "Installez les outils en ligne de commande Azure ({cli}), puis activez la prise en charge d’Azure DevOps avec {command}.",
   "ad599e9de33538dd": "Ajoutez un jeton Bitbucket dans Paramètres → Gestion de versions et tickets.",
   "d810ecd91e8cf9d0": "Installez la CLI Origin avec {install}, puis exécutez {login}.",
-  "eb0f60ef4f92ab7d": "Installez {fj} 0.6 ou version ultérieure depuis {fjUrl} et exécutez {fjLogin}, ou installez {tea} 0.16 ou version ultérieure depuis {teaUrl} et exécutez {teaLogin} pour chaque serveur Forgejo ou Gitea.",
+  "e77dfe9fc65aee9c": "Installez {fj} 0.6 ou version ultérieure depuis {fjUrl} et exécutez {fjLogin}, ou installez {gt} depuis {gtUrl} et exécutez {gtLogin} pour chaque serveur Forgejo ou Gitea.",
   "d026a85e2e50e675": "Installez la CLI GitCafe avec {install}, puis exécutez {login}, enregistrez un jeton dans Paramètres ou définissez {variable} sur le serveur.",
   "79d776428f4d0650": "Le fichier n’a pas pu être chargé. Reconnectez-vous et réessayez.",
   "3ea34cbb1ca5ba9b": "Aperçu annulé.",
@@ -12098,5 +12098,10 @@
   "faa3bb26abb39c93": "Échec du guide de revue",
   "b7df38b7d8792d78": "Ouvrir le guide",
   "9e91e9a77b664e4e": "Impossible de démarrer un guide de revue",
-  "5e85e163a59abec5": "modèle api clé d’api openai openrouter llm gateway anthropic ollama lm studio point de terminaison personnalisé url de base titres de fils messages de commit"
+  "5e85e163a59abec5": "modèle api clé d’api openai openrouter llm gateway anthropic ollama lm studio point de terminaison personnalisé url de base titres de fils messages de commit",
+  "531f72b2bd297543": "Environnement par défaut pour les nouveaux fils. Automatique utilise le dernier environnement utilisé ou l'environnement principal.",
+  "afd6fde0d17ff8a8": "Réinitialiser l'environnement par défaut sur automatique",
+  "5ed0e86a59502f46": "Environnement par défaut des fils",
+  "5f35cdb6701a255d": "Automatique",
+  "3785db86873e6d44": "environnement par défaut des fils nouveaux fils machine serveur hôte"
 }

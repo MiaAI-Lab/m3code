@@ -49,7 +49,7 @@
   "929a11e234f6e5d9": "Installera Azures kommandoradsverktyg ({cli}) och aktivera sedan stöd för Azure DevOps med {command}.",
   "ad599e9de33538dd": "Lägg till en Bitbucket-token i Inställningar → Versionshantering och ärenden.",
   "d810ecd91e8cf9d0": "Installera Origin CLI med {install} och kör sedan {login}.",
-  "eb0f60ef4f92ab7d": "Installera {fj} 0.6 eller senare från {fjUrl} och kör {fjLogin}, eller installera {tea} 0.16 eller senare från {teaUrl} och kör {teaLogin} för varje Forgejo- eller Gitea-server.",
+  "e77dfe9fc65aee9c": "Installera {fj} 0.6 eller senare från {fjUrl} och kör {fjLogin}, eller installera {gt} från {gtUrl} och kör {gtLogin} för varje Forgejo- eller Gitea-server.",
   "d026a85e2e50e675": "Installera GitCafe CLI med {install} och kör sedan {login}, spara en token i Inställningar eller ange {variable} på servern.",
   "79d776428f4d0650": "Filen kunde inte läsas in. Återanslut och försök igen.",
   "3ea34cbb1ca5ba9b": "Förhandsvisningen avbröts.",
@@ -12106,5 +12106,10 @@
   "faa3bb26abb39c93": "Granskningsguiden misslyckades",
   "b7df38b7d8792d78": "Öppna guiden",
   "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide",
-  "5e85e163a59abec5": "modell api api-nyckel openai openrouter llm gateway anthropic ollama lm studio anpassad slutpunkt bas-url trådtitlar commit-meddelanden"
+  "5e85e163a59abec5": "modell api api-nyckel openai openrouter llm gateway anthropic ollama lm studio anpassad slutpunkt bas-url trådtitlar commit-meddelanden",
+  "531f72b2bd297543": "Standardmiljö för nya trådar. Automatisk använder din senast använda eller primära miljö.",
+  "afd6fde0d17ff8a8": "Återställ standardmiljö till automatisk",
+  "5ed0e86a59502f46": "Standardmiljö för trådar",
+  "5f35cdb6701a255d": "Automatisk",
+  "3785db86873e6d44": "standardmiljö nya trådar maskin server värd"
 }

@@ -320,6 +320,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     environmentOnly: true,
   },
   {
+    id: "default-thread-environment",
+    title: msg("Environment"),
+    to: "/settings/threads",
+    scope: "environment-defaults",
+    searchTerms: [msg("default thread environment new threads machine server host")],
+  },
+  {
     id: "default-permissions",
     title: msg("Permissions"),
     to: "/settings/threads",

@@ -3,7 +3,12 @@ import {
   scopeProjectRef,
   scopeThreadRef,
 } from "@t3tools/client-runtime/environment";
-import { DEFAULT_SERVER_SETTINGS, type ScopedProjectRef, type ThreadId } from "@t3tools/contracts";
+import {
+  DEFAULT_SERVER_SETTINGS,
+  type EnvironmentId,
+  type ScopedProjectRef,
+  type ThreadId,
+} from "@t3tools/contracts";
 import { type AnyRouter, useRouter } from "@tanstack/react-router";
 import {
   composerDraftHasUserContent,
@@ -43,7 +48,7 @@ import { environmentSummaries } from "../state/presentation";
 import { environmentServerConfigsAtom } from "../state/server";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
-import { getClientSettings } from "./useSettings";
+import { getClientSettings, useClientSettings } from "./useSettings";
 import { getLocalStorageItem, useLocalStorage } from "./useLocalStorage";
 import * as Schema from "effect/Schema";
 import { useAtomValue } from "@effect/atom-react";
@@ -465,16 +470,30 @@ export function resolveDefaultProjectRef(
   projectOrder: readonly string[],
   lastUsedProjectKey: string | null,
   fallbackReady = true,
+  defaultThreadEnvironmentId: EnvironmentId | null = null,
 ): ScopedProjectRef | null {
-  const lastUsed = projects.find(
+  const activeProjects = projects.filter((project) => project.archivedAt == null);
+  const lastUsed = activeProjects.find(
     (project) =>
-      project.archivedAt == null &&
       scopedProjectKey(scopeProjectRef(project.environmentId, project.id)) === lastUsedProjectKey,
   );
-  if (lastUsed) return scopeProjectRef(lastUsed.environmentId, lastUsed.id);
+  if (
+    lastUsed &&
+    (defaultThreadEnvironmentId === null || lastUsed.environmentId === defaultThreadEnvironmentId)
+  ) {
+    return scopeProjectRef(lastUsed.environmentId, lastUsed.id);
+  }
   if (!fallbackReady) return null;
+  const preferredPool =
+    defaultThreadEnvironmentId !== null
+      ? activeProjects.filter((project) => project.environmentId === defaultThreadEnvironmentId)
+      : [];
+  const candidatePool = preferredPool.length > 0 ? preferredPool : activeProjects;
+  if (preferredPool.length === 0 && lastUsed) {
+    return scopeProjectRef(lastUsed.environmentId, lastUsed.id);
+  }
   const [defaultProject] = orderItemsByPreferredIds({
-    items: projects.filter((project) => project.archivedAt == null),
+    items: candidatePool,
     preferredIds: projectOrder,
     getId: getProjectOrderKey,
     getPreferenceIds: (project) => [
@@ -487,6 +506,7 @@ export function resolveDefaultProjectRef(
 
 export function useHandleNewThread() {
   const projectOrder = useUiStateStore((store) => store.projectOrder);
+  const defaultThreadEnvironmentId = useClientSettings((s) => s.defaultThreadEnvironmentId);
   const [lastUsedProjectKey] = useLocalStorage(
     LAST_USED_PROJECT_STORAGE_KEY,
     null,
@@ -514,6 +534,7 @@ export function useHandleNewThread() {
     projectOrder,
     lastUsedProjectKey,
     defaultProjectFallbackReady,
+    defaultThreadEnvironmentId,
   );
 
   return {
