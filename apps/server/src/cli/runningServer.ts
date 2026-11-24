@@ -12,6 +12,7 @@ import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpApiClient from "effect/http-api/HttpApiClient";
 
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
+import { createLocalCliMtlsFetch } from "../auth/MtlsServer.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as ServerOwnership from "../serverOwnership.ts";
@@ -50,14 +51,26 @@ export const serverClient = Effect.fn("RunningServer.serverClient")(function* (
   scopes: ReadonlyArray<AuthEnvironmentScope>,
 ) {
   const environmentAuth = yield* EnvironmentAuth.EnvironmentAuth;
+  const { mtlsDir } = yield* ServerConfig.ServerConfig;
   const session = yield* Effect.acquireRelease(
     environmentAuth.issueSession({ scopes, subject: "cli", label: "t3 cli", ttl: SESSION_TTL }),
     ({ sessionId }) => environmentAuth.revokeSession(sessionId).pipe(Effect.ignore({ log: true })),
   );
-  return yield* HttpApiClient.make(EnvironmentHttpApi, {
+  const mtlsFetch = origin.startsWith("https://")
+    ? yield* Effect.acquireRelease(
+        Effect.sync(() => createLocalCliMtlsFetch(mtlsDir)),
+        (handle) =>
+          handle ? Effect.promise(() => handle.close()).pipe(Effect.ignore) : Effect.void,
+      )
+    : undefined;
+  const client = HttpApiClient.make(EnvironmentHttpApi, {
     baseUrl: origin,
     transformClient: HttpClient.mapRequest(HttpClientRequest.bearerToken(session.token)),
   }).pipe(Effect.provide(FetchHttpClient.layer));
+  if (mtlsFetch === undefined) {
+    return yield* client;
+  }
+  return yield* client.pipe(Effect.provideService(FetchHttpClient.Fetch, mtlsFetch.fetch));
 });
 
 // The request never reached a server, so it changed nothing there.

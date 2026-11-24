@@ -29,6 +29,7 @@ import {
   DurationFromString,
   resolveCliAuthConfig,
 } from "./config.ts";
+import { mtlsCommand } from "./mtls.ts";
 import * as RunningServer from "./runningServer.ts";
 
 const runWithEnvironmentAuth = Effect.fn("auth.runWithEnvironmentAuth")(function* <A, E, R>(
@@ -382,5 +383,5 @@ const sessionCommand = Command.make("session").pipe(
 
 export const authCommand = Command.make("auth").pipe(
   Command.withDescription("Manage the local auth control plane for headless deployments."),
-  Command.withSubcommands([pairingCommand, sessionCommand, connectDeviceCommand]),
+  Command.withSubcommands([pairingCommand, sessionCommand, connectDeviceCommand, mtlsCommand]),
 );

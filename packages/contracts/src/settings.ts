@@ -1181,12 +1181,12 @@ export type ResponseStreamingMode = typeof ResponseStreamingMode.Type;
  */
 export const RemoteTransportPolicy = Schema.Literals(["any", "private-e2ee-only"]);
 export type RemoteTransportPolicy = typeof RemoteTransportPolicy.Type;
-export const DEFAULT_REMOTE_TRANSPORT_POLICY: RemoteTransportPolicy = "any";
+const DEFAULT_REMOTE_TRANSPORT_POLICY: RemoteTransportPolicy = "any";
 
 /** Application-layer E2EE on the WebSocket RPC channel. */
 export const E2eeMode = Schema.Literals(["off", "prefer", "require"]);
 export type E2eeMode = typeof E2eeMode.Type;
-export const DEFAULT_E2EE_MODE: E2eeMode = "off";
+const DEFAULT_E2EE_MODE: E2eeMode = "off";
 
 const StorageRetentionDays = Schema.NullOr(
   Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 3650 })),

@@ -177,7 +177,7 @@ export const setPairingTokenOnUrl = (url: URL, credential: string): URL => {
 };
 
 /** The server's pinned E2EE identity key carried beside the pairing token. */
-export const getPairingServerKeyFromUrl = (url: URL): string | null => {
+const getPairingServerKeyFromUrl = (url: URL): string | null => {
   const hashKey = readHashParams(url).get(PAIRING_SERVER_KEY_PARAM)?.trim() ?? "";
   if (hashKey.length > 0) return hashKey;
   const searchKey = url.searchParams.get(PAIRING_SERVER_KEY_PARAM)?.trim() ?? "";

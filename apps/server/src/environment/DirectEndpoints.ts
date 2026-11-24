@@ -23,6 +23,7 @@ import {
   isWildcardHost,
 } from "@t3tools/shared/hostClassification";
 
+import { isMtlsEnabled } from "../auth/MtlsServer.ts";
 import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "./ServerEnvironment.ts";
 import {
@@ -66,6 +67,7 @@ export function resolveBoundEndpoints(input: {
   /** A cloud VM's private network is its provider's, which no client shares. */
   readonly onCloudVm?: boolean;
   readonly isolatedBridges?: ReadonlySet<string>;
+  readonly mtlsEnabled?: boolean;
 }): ReadonlyArray<ServerDirectEndpoint> {
   if (isLoopbackHost(input.host)) return [];
   const tailscaleAddresses = new Set(
@@ -92,11 +94,12 @@ export function resolveBoundEndpoints(input: {
         (address) =>
           isAdvertisableAddress(address) || (NodeNet.isIPv6(address) && isTailnetHost(address)),
       );
+  const scheme = input.mtlsEnabled ? "https" : "http";
   return [...new Set(addresses)]
     .filter((address) => !input.onCloudVm || tailscaleAddresses.has(address))
     .map((address) => ({
       kind: tailscaleAddresses.has(address) ? "tailnet" : "lan",
-      httpBaseUrl: `http://${formatHostForUrl(address)}:${input.port}/`,
+      httpBaseUrl: `${scheme}://${formatHostForUrl(address)}:${input.port}/`,
     }));
 }
 
@@ -201,6 +204,7 @@ export const make = Effect.gen(function* () {
         interfaces,
         onCloudVm: yield* onCloudVm,
         ...(isolatedBridges === undefined ? {} : { isolatedBridges }),
+        mtlsEnabled: isMtlsEnabled(config),
       }),
     ];
     const servedUrl = yield* Ref.get(servedEndpoint);

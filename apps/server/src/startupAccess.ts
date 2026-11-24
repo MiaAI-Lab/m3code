@@ -1,5 +1,6 @@
-// @effect-diagnostics nodeBuiltinImport:off - The private-network gate guards the node:http server.
+// @effect-diagnostics nodeBuiltinImport:off - The private-network gate guards the node:http/https server.
 import type * as NodeHttp from "node:http";
+import type * as NodeHttps from "node:https";
 import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 
@@ -19,6 +20,7 @@ import * as NetAddress from "effect/net/NetAddress";
 
 import * as ServerConfig from "./config.ts";
 import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
+import { isMtlsEnabled } from "./auth/MtlsServer.ts";
 
 export interface HeadlessServeAccessInfo {
   readonly connectionString: string;
@@ -96,7 +98,7 @@ const CLOSED_CONNECTION_LOG_INTERVAL_NANOS = 60_000_000_000n;
  */
 // Untraced: the captured context would otherwise tie every later warning to a span that ended at startup.
 export const closeNonPrivateNetworkConnections = Effect.fnUntraced(function* (
-  server: NodeHttp.Server,
+  server: NodeHttp.Server | NodeHttps.Server,
 ) {
   const runSync = Effect.runSyncWith(yield* Effect.context<never>());
   let nextLogAt: bigint | undefined;
@@ -195,6 +197,7 @@ export const resolveHeadlessConnectionString = (
   options: {
     readonly interfaces?: NetworkInterfacesMap;
     readonly privateNetworkOnly?: boolean | undefined;
+    readonly mtlsEnabled?: boolean | undefined;
     readonly platform: NodeJS.Platform;
   },
 ): string => {
@@ -204,7 +207,8 @@ export const resolveHeadlessConnectionString = (
     options.privateNetworkOnly === true,
     options.platform,
   );
-  return `http://${formatHostForUrl(connectionHost)}:${port}`;
+  const scheme = options.mtlsEnabled ? "https" : "http";
+  return `${scheme}://${formatHostForUrl(connectionHost)}:${port}`;
 };
 
 const resolveListeningPort = (address: unknown, fallbackPort: number): number => {
@@ -257,24 +261,32 @@ export const renderTerminalQrCode = (value: string, margin = 2): string => {
   return rows.join("\n");
 };
 
-export const formatHeadlessServeOutput = (accessInfo: HeadlessServeAccessInfo): string =>
-  [
+export const formatHeadlessServeOutput = (accessInfo: HeadlessServeAccessInfo): string => {
+  const parsedUrl = new URL(accessInfo.connectionString);
+  const usesHttps = parsedUrl.protocol === "https:";
+  return [
     "M3 Code server is ready.",
     `Connection string: ${accessInfo.connectionString}`,
     `Token: ${accessInfo.token}`,
     `Pairing URL: ${accessInfo.pairingUrl}`,
     `App link: ${buildPairingAppLink(accessInfo.pairingUrl)}`,
-    ...(isLoopbackHost(new URL(accessInfo.connectionString).hostname)
-      ? []
-      : [
+    ...(usesHttps
+      ? [
           "",
-          "Warning: this address uses plain HTTP. Anyone on the same network can read the",
-          "token and control this machine. Use it over a VPN or tailnet you trust.",
-        ]),
+          "Transport: local mTLS (TLS 1.3 mutual authentication). Issue client certs with `t3 auth mtls issue`.",
+        ]
+      : isLoopbackHost(parsedUrl.hostname)
+        ? []
+        : [
+            "",
+            "Warning: this address uses plain HTTP. Anyone on the same network can read the",
+            "token and control this machine. Use it over a VPN or tailnet you trust.",
+          ]),
     "",
     renderTerminalQrCode(accessInfo.pairingUrl),
     "",
   ].join("\n");
+};
 
 export const issueHeadlessServeAccessInfo = Effect.fn("issueHeadlessServeAccessInfo")(function* () {
   const serverConfig = yield* ServerConfig.ServerConfig;
@@ -284,7 +296,11 @@ export const issueHeadlessServeAccessInfo = Effect.fn("issueHeadlessServeAccessI
   const connectionString = resolveHeadlessConnectionString(
     serverConfig.host,
     resolveListeningPort(httpServer.address, serverConfig.port),
-    { privateNetworkOnly: serverConfig.privateNetworkOnly, platform },
+    {
+      privateNetworkOnly: serverConfig.privateNetworkOnly,
+      mtlsEnabled: isMtlsEnabled(serverConfig),
+      platform,
+    },
   );
   const issued = yield* serverAuth.issueStartupPairingCredential();
 
