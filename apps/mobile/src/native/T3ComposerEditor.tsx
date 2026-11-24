@@ -25,7 +25,7 @@ export function ComposerEditor({
 }: ComposerEditorProps) {
   const inputRef = useRef<TextInputInstance>(null);
   const bodyText = useScaledTextRole("body");
-  const fontFamily = FONT_FAMILIES.regular;
+  const fontFamily = bodyText.fontFamily ?? FONT_FAMILIES.regular;
   const handlePaste = useNativePaste((uris) => onPasteImages?.(uris));
 
   useImperativeHandle(
