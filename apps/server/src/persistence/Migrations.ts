@@ -113,6 +113,18 @@ import Migration124 from "./Migrations/124_ThreadItemCounts.ts";
 import Migration125 from "./Migrations/125_InferenceDiagnostics.ts";
 import Migration081 from "./Migrations/081_InferenceRequests.ts";
 import Migration082 from "./Migrations/082_InferenceRequestRouting.ts";
+import Migration126 from "./Migrations/126_IssueTrackerAdditionalScopes.ts";
+import Migration127 from "./Migrations/127_ProjectionProjectsTrackedFolders.ts";
+import Migration128 from "./Migrations/128_TaskFolders.ts";
+import Migration129 from "./Migrations/129_WorktreePathKeyIndex.ts";
+import Migration130 from "./Migrations/130_DeferredSlashCommandIndex.ts";
+import Migration132 from "./Migrations/132_IssueTrackerAccounts.ts";
+import Migration133 from "./Migrations/133_Workflows.ts";
+import Migration134 from "./Migrations/134_SupersededRunAttemptIndex.ts";
+import Migration135 from "./Migrations/135_LayoutCommandApprovals.ts";
+import Migration136 from "./Migrations/136_WorkflowSkippedRuns.ts";
+import Migration137 from "./Migrations/137_WorkflowRunIndexes.ts";
+import Migration138 from "./Migrations/138_WorkflowRunTags.ts";
 
 const migrationEntries = [
   [1, "OrchestrationEvents", Migration001],
@@ -222,6 +234,19 @@ const migrationEntries = [
   [123, "DelegatedTaskReadIndexes", Migration123],
   [124, "ThreadItemCounts", Migration124],
   [125, "InferenceDiagnostics", Migration125],
+  // Upstream numbers these 103-115; the fork already used those IDs, so the files are renumbered to match.
+  [126, "IssueTrackerAdditionalScopes", Migration126],
+  [127, "ProjectionProjectsTrackedFolders", Migration127],
+  [128, "TaskFolders", Migration128],
+  [129, "WorktreePathKeyIndex", Migration129],
+  [130, "DeferredSlashCommandIndex", Migration130],
+  [132, "IssueTrackerAccounts", Migration132],
+  [133, "Workflows", Migration133],
+  [134, "SupersededRunAttemptIndex", Migration134],
+  [135, "LayoutCommandApprovals", Migration135],
+  [136, "WorkflowSkippedRuns", Migration136],
+  [137, "WorkflowRunIndexes", Migration137],
+  [138, "WorkflowRunTags", Migration138],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

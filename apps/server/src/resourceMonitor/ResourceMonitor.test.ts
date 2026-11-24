@@ -286,8 +286,7 @@ describe("ResourceMonitor", () => {
         childCpuTimeMs: 200,
         childWriteBytes: 2_000,
       });
-      const nativeSnapshots =
-        yield* PubSub.unbounded<NativeMonitorClient.NativeMonitorSnapshot>();
+      const nativeSnapshots = yield* PubSub.unbounded<NativeMonitorClient.NativeMonitorSnapshot>();
       const layerNative = NativeMonitorClient.layerTest({
         snapshots: Stream.fromPubSub(nativeSnapshots),
         sampleNow: Effect.never,
@@ -302,11 +301,7 @@ describe("ResourceMonitor", () => {
       });
       const layerMonitor = ResourceMonitor.layer.pipe(
         Layer.provide(
-          Layer.mergeAll(
-            layerNative,
-            DesktopHostChannel.layerTest(),
-            ResourceAttribution.layer,
-          ),
+          Layer.mergeAll(layerNative, DesktopHostChannel.layerTest(), ResourceAttribution.layer),
         ),
       );
 

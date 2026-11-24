@@ -19,7 +19,7 @@ import * as Schema from "effect/Schema";
 import * as Schedule from "effect/Schedule";
 import * as Semaphore from "effect/Semaphore";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as FeatureFlags from "@t3tools/shared/FeatureFlags";
 
 import * as GitHubClient from "../shared/definition.ts";
 
@@ -107,7 +107,8 @@ const signInError = (host: string, reason: SourceControlSignInFailure, detail: s
 export const make = Effect.gen(function* () {
   const sourceControlHost = yield* SourceControlHost.SourceControlHost;
   const httpClient = yield* HttpClient.HttpClient;
-  const clientId = (yield* HostProcess.Environment)[CLIENT_ID_VARIABLE]?.trim() ?? "";
+  // Unset turns the app sign-in off: no app tokens, no sign-in, nothing for clients to show.
+  const clientId = Option.getOrElse((yield* FeatureFlags.FeatureFlags).githubAppClientId, () => "");
   const enabled = clientId !== "";
   const scope = yield* Effect.scope;
   const refreshLock = yield* Semaphore.make(1);

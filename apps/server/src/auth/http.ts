@@ -35,10 +35,7 @@ import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 
 import * as EnvironmentAuth from "./EnvironmentAuth.ts";
-import {
-  classifyRequestTransport,
-  transportAllowedByPolicy,
-} from "./transportSecurity.ts";
+import { classifyRequestTransport, transportAllowedByPolicy } from "./transportSecurity.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as SessionStore from "./SessionStore.ts";
 import { deriveAuthClientMetadata } from "./utils.ts";
@@ -194,7 +191,11 @@ export const authenticateMediaRequest =
 
 export const failEnvironmentInternal =
   /* Request instrumentation already owns the span; keep this helper in that context. */
-  Effect.fnUntraced(function* (reason: EnvironmentInternalErrorReason, error?: unknown) {
+  Effect.fnUntraced(function* (
+    reason: EnvironmentInternalErrorReason,
+    error?: unknown,
+    detail?: string,
+  ) {
     const traceId = yield* currentEnvironmentTraceId;
     if (error !== undefined) {
       yield* Effect.logError("environment api operation failed", {
@@ -203,7 +204,12 @@ export const failEnvironmentInternal =
         cause: error,
       });
     }
-    return yield* new EnvironmentInternalError({ code: "internal_error", reason, traceId });
+    return yield* new EnvironmentInternalError({
+      code: "internal_error",
+      reason,
+      traceId,
+      ...(detail === undefined ? {} : { detail }),
+    });
   });
 
 // Plaintext LAN servers still need the cookie; TLS arrives through a proxy that sets X-Forwarded-Proto.

@@ -14,10 +14,7 @@ import { useSelectWorkspaceTab } from "../layout/workspace/useSelectWorkspaceTab
 import { useWorkspaceTabs } from "../layout/workspace/WorkspaceTabsContext";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { EmptyState } from "../../components/ui/EmptyState";
-import {
-  useCloudAuth as useAuth,
-  useCloudUser as useUser,
-} from "../cloud/CloudAuthProvider";
+import { useCloudAuth as useAuth, useCloudUser as useUser } from "../cloud/CloudAuthProvider";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { use, type ComponentProps } from "react";
 import { Platform, View } from "react-native";

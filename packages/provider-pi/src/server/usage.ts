@@ -167,12 +167,7 @@ export function makePiUsageReader(options: {
           ? [{ dir: path.resolve(launchDir) }]
           : []),
         {
-          dir: resolvePiSessionsDir(
-            environment,
-            launchHome,
-            path,
-            options.defaultAgentDirSegments,
-          ),
+          dir: resolvePiSessionsDir(environment, launchHome, path, options.defaultAgentDirSegments),
         },
       ];
     }),

@@ -356,9 +356,7 @@ export const make = Effect.fn("desktop.hostMonitor.make")(function* () {
         return Effect.void;
     }
   };
-  const removeControlSource: DesktopHostMonitor["Service"]["removeControlSource"] = (
-    sourceId,
-  ) =>
+  const removeControlSource: DesktopHostMonitor["Service"]["removeControlSource"] = (sourceId) =>
     Ref.modify(diagnosticsDemandSources, (sources) => {
       const previous = sources.size > 0;
       const next = new Set(sources);
@@ -407,9 +405,7 @@ export const make = Effect.fn("desktop.hostMonitor.make")(function* () {
     Stream.merge(Stream.merge(snapshots, updateReports), shellEnvironment.updates),
   ).pipe(Stream.map((message) => textEncoder.encode(`${encodeMessage(message)}\n`)));
 
-  const publishUpdateReport: DesktopHostMonitor["Service"]["publishUpdateReport"] = (
-    report,
-  ) =>
+  const publishUpdateReport: DesktopHostMonitor["Service"]["publishUpdateReport"] = (report) =>
     Ref.set(latestUpdateReport, Option.some(report)).pipe(
       Effect.andThen(PubSub.publish(updateReportChanges, report)),
       Effect.asVoid,

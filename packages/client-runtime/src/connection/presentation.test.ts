@@ -221,28 +221,48 @@ describe("connectionSecurityBadge", () => {
   });
 
   it("marks loopback origins as local", () => {
-    expect(connectionSecurityBadge({ entry: entryFor("http://127.0.0.1:3773"), connectedTarget: null })).toEqual({
+    expect(
+      connectionSecurityBadge({ entry: entryFor("http://127.0.0.1:3773"), connectedTarget: null }),
+    ).toEqual({
       kind: "local",
     });
-    expect(connectionSecurityBadge({ entry: entryFor("http://localhost:3773"), connectedTarget: null })).toEqual({
+    expect(
+      connectionSecurityBadge({ entry: entryFor("http://localhost:3773"), connectedTarget: null }),
+    ).toEqual({
       kind: "local",
     });
   });
 
   it("marks tailnet origins as end-to-end-encrypted transports", () => {
     expect(
-      connectionSecurityBadge({ entry: entryFor("http://100.72.10.4:3773"), connectedTarget: null }),
+      connectionSecurityBadge({
+        entry: entryFor("http://100.72.10.4:3773"),
+        connectedTarget: null,
+      }),
     ).toEqual({ kind: "e2ee-transport" });
     expect(
-      connectionSecurityBadge({ entry: entryFor("https://host.tail-scale.ts.net"), connectedTarget: null }),
+      connectionSecurityBadge({
+        entry: entryFor("https://host.tail-scale.ts.net"),
+        connectedTarget: null,
+      }),
     ).toEqual({ kind: "e2ee-transport" });
   });
 
   it("marks plain LAN origins as unencrypted and https ones as TLS only", () => {
-    expect(connectionSecurityBadge({ entry: entryFor("http://192.168.1.20:3773"), connectedTarget: null })).toEqual({
+    expect(
+      connectionSecurityBadge({
+        entry: entryFor("http://192.168.1.20:3773"),
+        connectedTarget: null,
+      }),
+    ).toEqual({
       kind: "unencrypted",
     });
-    expect(connectionSecurityBadge({ entry: entryFor("https://192.168.1.20:3773"), connectedTarget: null })).toEqual({
+    expect(
+      connectionSecurityBadge({
+        entry: entryFor("https://192.168.1.20:3773"),
+        connectedTarget: null,
+      }),
+    ).toEqual({
       kind: "tls-tunnel",
     });
   });
@@ -256,7 +276,9 @@ describe("connectionSecurityBadge", () => {
       }),
       profile: Option.none(),
     };
-    expect(connectionSecurityBadge({ entry, connectedTarget: null })).toEqual({ kind: "tls-tunnel" });
+    expect(connectionSecurityBadge({ entry, connectedTarget: null })).toEqual({
+      kind: "tls-tunnel",
+    });
   });
 
   it("the pinned app layer wins over the transport badge", () => {

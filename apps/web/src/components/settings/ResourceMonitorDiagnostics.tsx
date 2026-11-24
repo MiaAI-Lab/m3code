@@ -39,10 +39,7 @@ import {
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { m, type MessageResolver } from "../../i18n/messages";
 
-import {
-  useResourceMonitor,
-  useResourceMonitorHistory,
-} from "../../lib/resourceMonitorState";
+import { useResourceMonitor, useResourceMonitorHistory } from "../../lib/resourceMonitorState";
 import { cn } from "../../lib/utils";
 import { formatBytes } from "../../lib/formatBytes";
 import { ensureLocalApi } from "../../localApi";
@@ -887,9 +884,7 @@ export function ResourceMonitorDiagnostics({
   environmentId: EnvironmentId | null;
 }) {
   // Pending signals and retries belong to one environment, so a switch starts fresh.
-  return (
-    <ResourceMonitorDiagnosticsBody key={environmentId ?? ""} environmentId={environmentId} />
-  );
+  return <ResourceMonitorDiagnosticsBody key={environmentId ?? ""} environmentId={environmentId} />;
 }
 
 function ResourceMonitorDiagnosticsBody({

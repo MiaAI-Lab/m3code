@@ -13,10 +13,7 @@ import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
 import { makePiUsageReader, piUsageReader } from "./usage.ts";
 import { makePiTextGeneration } from "./textGeneration.ts";
 import { makePiGatewaySource } from "./gateway.ts";
-import {
-  createPiAdapterV2Driver,
-  type PiAdapterV2DriverEnv,
-} from "./adapter.ts";
+import { createPiAdapterV2Driver, type PiAdapterV2DriverEnv } from "./adapter.ts";
 import { PI_FLAVOR, type PiFlavor } from "./flavor.ts";
 import { ProviderDriverError } from "@t3tools/provider-core/server/errors";
 import {
@@ -171,7 +168,10 @@ export function createPiDriver(options: {
               }),
           ),
         );
-      const gatewaySource = yield* makePiGatewaySource(instanceId, host.paths.providerStatusCacheDir);
+      const gatewaySource = yield* makePiGatewaySource(
+        instanceId,
+        host.paths.providerStatusCacheDir,
+      );
       const textGeneration = yield* makePiTextGeneration(
         effectiveConfig,
         processEnv,

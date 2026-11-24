@@ -320,6 +320,7 @@ export const ShellEnvironmentPatch = Schema.Struct({
   SSL_CERT_DIR: Schema.optionalKey(Schema.NullOr(Schema.String)),
   NODE_EXTRA_CA_CERTS: Schema.optionalKey(Schema.NullOr(Schema.String)),
   T3CODE_GITHUB_APP_CLIENT_ID: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  T3CODE_FEATURE_FLAGS: Schema.optionalKey(Schema.NullOr(Schema.String)),
   T3CODE_RELEASE_BASE_URL: Schema.optionalKey(Schema.NullOr(Schema.String)),
   __MISE_DIFF: Schema.optionalKey(Schema.NullOr(Schema.String)),
   JAVA_HOME: Schema.optionalKey(Schema.NullOr(Schema.String)),
@@ -359,8 +360,7 @@ export const DesktopHostSetPowerIntervals = Schema.Struct({
   activeIntervalMs: PositiveInt,
   idleIntervalMs: PositiveInt,
 });
-export type DesktopHostSetPowerIntervals =
-  typeof DesktopHostSetPowerIntervals.Type;
+export type DesktopHostSetPowerIntervals = typeof DesktopHostSetPowerIntervals.Type;
 
 /** Runs check/download/quit-and-install without local confirmation; the remote RPC click supplies consent. */
 export const DesktopHostRequestDesktopUpdate = Schema.Struct({

@@ -529,7 +529,12 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
   }
 
   const probeEnvironment = providerProbeEnvironment(environment);
-  const versionResult = yield* runPiVersionCommand(piSettings, probeEnvironment, undefined, flavor).pipe(
+  const versionResult = yield* runPiVersionCommand(
+    piSettings,
+    probeEnvironment,
+    undefined,
+    flavor,
+  ).pipe(
     Effect.timeoutOption(
       resolveProviderProbeTimeoutMs(flavor.driverKind, VERSION_PROBE_TIMEOUT_MS, environment),
     ),
@@ -538,7 +543,9 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
 
   if (Result.isFailure(versionResult)) {
     const error = versionResult.failure;
-    yield* Effect.logWarning(`${flavor.displayName} CLI health check failed.`, { errorTag: error._tag });
+    yield* Effect.logWarning(`${flavor.displayName} CLI health check failed.`, {
+      errorTag: error._tag,
+    });
     return buildServerProvider({
       presentation,
       enabled: piSettings.enabled,

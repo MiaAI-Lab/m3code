@@ -403,3 +403,10 @@ turn anything back on.
   models, with **Text generation fallback** defaulting to **Local models only**.
 - Codex text generation keeps local launch arguments; handoffs fit small local context windows.
 - Product analytics are opt-in.
+
+## 2026-11-25 — Catch-up merge of upstream t3code
+
+- Merged `upstream/main` (~890 commits). Kept telemetry, Clerk and upstream's agent-feedback feature removed.
+- Upstream's 12 new migrations are registered as IDs 126-138 (131 left as a gap) and their files renumbered to match, because this fork already uses 103-125.
+- Docs use upstream's numbered filenames; fork-only docs are listed in `docs/README.md`.
+- Added `scripts/check-fork-invariants.sh` and `scripts/check-fork-protected.sh` (list in `scripts/fork-protected.txt`), and `.github/workflows/upstream-sync.yml` for nightly syncs.

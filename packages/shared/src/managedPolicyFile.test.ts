@@ -276,7 +276,7 @@ describe("readManagedPolicy", () => {
             disabledGroups,
           ),
         ),
-        { schemaVersion: 1, organization: "Société 日本 ✓" }
+        { schemaVersion: 1, organization: "Société 日本 ✓" },
       );
       // With nothing else configured, that is no policy rather than one missing Organization.
       assert.isUndefined(

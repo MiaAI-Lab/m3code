@@ -44,11 +44,14 @@ export function environmentStatusText(
  * carry no route profiles, so the app-layer E2EE badge is web-only; the
  * transport badge still says whether the stream is protected in transit.
  */
-export function connectionSecuritySummaryText(input: {
-  readonly connectionState: EnvironmentConnectionPhase;
-  readonly isRelayManaged: boolean;
-  readonly displayUrl: string;
-}, resolve: MessageResolver = m): string | null {
+export function connectionSecuritySummaryText(
+  input: {
+    readonly connectionState: EnvironmentConnectionPhase;
+    readonly isRelayManaged: boolean;
+    readonly displayUrl: string;
+  },
+  resolve: MessageResolver = m,
+): string | null {
   if (input.connectionState !== "connected") return null;
   const target = input.isRelayManaged
     ? null
@@ -59,7 +62,11 @@ export function connectionSecuritySummaryText(input: {
           httpBaseUrl: input.displayUrl.replace(/^ws/, "http"),
           wsBaseUrl: input.displayUrl,
         })
-      : new BearerConnectionTarget({ environmentId: "mobile" as never, label: "", connectionId: "" });
+      : new BearerConnectionTarget({
+          environmentId: "mobile" as never,
+          label: "",
+          connectionId: "",
+        });
   if (target === null) return connectionSecurityBadgeText({ kind: "tls-tunnel" }, resolve);
   const badge = connectionSecurityBadge({
     entry: { target, profile: Option.none(), enabled: true },

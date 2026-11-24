@@ -124,9 +124,7 @@ describe("PublishClientConfig", () => {
       const dir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-relay-client-config-" });
       const target = path.join(dir, "client.env");
       const exit = yield* stack
-        .deploy(
-          PublishClientConfig(clientConfig()),
-        )
+        .deploy(PublishClientConfig(clientConfig()))
         .pipe(
           Effect.provide(
             ConfigProvider.layer(

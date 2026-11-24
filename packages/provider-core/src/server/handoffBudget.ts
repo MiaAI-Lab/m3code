@@ -79,7 +79,9 @@ export function contextUsageForHandoff(input: {
     input.previousUsage.maxTokens != null && input.previousUsage.maxTokens > 0
       ? input.previousUsage.maxTokens
       : undefined;
-  const maxTokens = input.reuseReportedWindow ? reportedMax : (input.knownModelWindow ?? reportedMax);
+  const maxTokens = input.reuseReportedWindow
+    ? reportedMax
+    : (input.knownModelWindow ?? reportedMax);
   return {
     usedTokens: input.previousUsage.usedTokens,
     ...(maxTokens === undefined ? {} : { maxTokens }),

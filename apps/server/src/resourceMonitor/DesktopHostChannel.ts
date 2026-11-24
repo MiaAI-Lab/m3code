@@ -102,13 +102,10 @@ export class DesktopHostStreamClosed extends Schema.TaggedError<DesktopHostStrea
   }
 }
 
-export class DesktopHostStale extends Schema.TaggedError<DesktopHostStale>()(
-  "DesktopHostStale",
-  {
-    fd: Schema.Number,
-    staleAfterMs: Schema.Number,
-  },
-) {
+export class DesktopHostStale extends Schema.TaggedError<DesktopHostStale>()("DesktopHostStale", {
+  fd: Schema.Number,
+  staleAfterMs: Schema.Number,
+}) {
   override get message(): string {
     return `Desktop host channel on fd ${this.fd} has not updated for ${this.staleAfterMs}ms.`;
   }
@@ -146,9 +143,7 @@ export class DesktopHostControlStalled extends Schema.TaggedError<DesktopHostCon
   }
 }
 
-export type DesktopHostControlError =
-  | DesktopHostControlFailed
-  | DesktopHostControlStalled;
+export type DesktopHostControlError = DesktopHostControlFailed | DesktopHostControlStalled;
 
 export interface DesktopHostChannelHealth {
   readonly status: ResourceMonitorSourceStatus;
@@ -175,6 +170,8 @@ export class DesktopHostChannel extends Context.Service<
       never,
       Scope.Scope
     >;
+    /** Emits when a desktop shell environment changes this process's PATH; replays the last one. */
+    readonly pathChanges: Stream.Stream<void>;
     readonly health: Effect.Effect<DesktopHostChannelHealth>;
     readonly subscribeHealth: Effect.Effect<
       {
@@ -275,18 +272,13 @@ export function makeApplyDesktopShellEnvironmentSnapshot(
 }
 
 const decodeMessage = Schema.decodeUnknownEffect(DesktopHostChannelMessage);
-const encodeControlMessage = Schema.encodeEffect(
-  Schema.fromJsonString(DesktopHostControlMessage),
-);
+const encodeControlMessage = Schema.encodeEffect(Schema.fromJsonString(DesktopHostControlMessage));
 const isDescriptorUnavailable = Schema.is(DesktopHostDescriptorUnavailable);
 const isProtocolMismatch = Schema.is(DesktopHostProtocolMismatch);
 const isDecodeFailed = Schema.is(DesktopHostDecodeFailed);
 const isStreamFailed = Schema.is(DesktopHostStreamFailed);
 
-function isDesktopHostContactStale(
-  lastContactAtMs: Option.Option<number>,
-  nowMs: number,
-): boolean {
+function isDesktopHostContactStale(lastContactAtMs: Option.Option<number>, nowMs: number): boolean {
   return Option.exists(
     lastContactAtMs,
     (lastContact) => nowMs - lastContact >= INITIAL_SAMPLE_DEADLINE_MS,
@@ -343,45 +335,43 @@ export const writeAllToFileDescriptor = Effect.fn(
 )(function* (fd: number, payload: Buffer) {
   let offset = 0;
   while (offset < payload.byteLength) {
-    const written = yield* Effect.callback<number, DesktopHostControlFailed>(
-      (resume, signal) => {
-        if (signal.aborted) return;
-        try {
-          NodeFS.write(
-            fd,
-            payload,
-            offset,
-            payload.byteLength - offset,
-            null,
-            (error, bytesWritten) => {
-              if (error) {
-                resume(
-                  Effect.fail(
-                    new DesktopHostControlFailed({
-                      fd,
-                      operation: "write",
-                      cause: error,
-                    }),
-                  ),
-                );
-                return;
-              }
-              resume(Effect.succeed(bytesWritten));
-            },
-          );
-        } catch (cause) {
-          resume(
-            Effect.fail(
-              new DesktopHostControlFailed({
-                fd,
-                operation: "write",
-                cause,
-              }),
-            ),
-          );
-        }
-      },
-    );
+    const written = yield* Effect.callback<number, DesktopHostControlFailed>((resume, signal) => {
+      if (signal.aborted) return;
+      try {
+        NodeFS.write(
+          fd,
+          payload,
+          offset,
+          payload.byteLength - offset,
+          null,
+          (error, bytesWritten) => {
+            if (error) {
+              resume(
+                Effect.fail(
+                  new DesktopHostControlFailed({
+                    fd,
+                    operation: "write",
+                    cause: error,
+                  }),
+                ),
+              );
+              return;
+            }
+            resume(Effect.succeed(bytesWritten));
+          },
+        );
+      } catch (cause) {
+        resume(
+          Effect.fail(
+            new DesktopHostControlFailed({
+              fd,
+              operation: "write",
+              cause,
+            }),
+          ),
+        );
+      }
+    });
     yield* requireDesktopHostWriteProgress(fd, payload.byteLength - offset, written);
     offset += written;
   }
@@ -397,20 +387,36 @@ export function requireDesktopHostWriteProgress(
     : Effect.fail(new DesktopHostControlStalled({ fd, remainingBytes }));
 }
 
+export const makeDesktopShellEnvironmentUpdates = Effect.fn(
+  "DesktopTelemetryReceiver.makeDesktopShellEnvironmentUpdates",
+)(function* (environment: NodeJS.ProcessEnv, platform: NodeJS.Platform) {
+  const applyShellEnvironment = makeApplyDesktopShellEnvironmentSnapshot(environment, platform);
+  // Replayed, because the provider watcher may subscribe after the snapshot arrived.
+  const pathChanges = yield* Effect.acquireRelease(
+    PubSub.sliding<void>({ capacity: 1, replay: 1 }),
+    PubSub.shutdown,
+  );
+  const readPath = () => environment.PATH ?? environment.Path;
+  // Untraced: applyShellEnvironment already carries this operation's span.
+  const apply = Effect.fnUntraced(function* (message: DesktopShellEnvironmentSnapshot) {
+    const before = readPath();
+    yield* applyShellEnvironment(message);
+    if (readPath() !== before) yield* PubSub.publish(pathChanges, undefined);
+  });
+  return { apply, pathChanges: Stream.fromPubSub(pathChanges) };
+});
+
 /** @public */
 export const make = Effect.fn("resourceMonitor.desktopHostChannel.make")(function* () {
   const config = yield* ServerConfig.ServerConfig;
   const environment = yield* HostProcess.Environment;
   const platform = yield* HostProcess.Platform;
-  const applyShellSnapshot = makeApplyDesktopShellEnvironmentSnapshot(environment, platform);
+  const shellEnvironment = yield* makeDesktopShellEnvironmentUpdates(environment, platform);
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const latest = yield* Ref.make(Option.none<DesktopHostSnapshot>());
   const receiverStartedAt = yield* DateTime.now;
   const lastContactAtMs = yield* Ref.make(
-    initialDesktopHostContactAt(
-      config.desktopHostFd,
-      DateTime.toEpochMillis(receiverStartedAt),
-    ),
+    initialDesktopHostContactAt(config.desktopHostFd, DateTime.toEpochMillis(receiverStartedAt)),
   );
   const snapshotStaleAfterMs = yield* Ref.make(
     resolveDesktopHostSnapshotStaleAfterMs(
@@ -436,9 +442,7 @@ export const make = Effect.fn("resourceMonitor.desktopHostChannel.make")(functio
           )
         : Option.none(),
   });
-  const updateHealth = (
-    update: (current: DesktopHostChannelHealth) => DesktopHostChannelHealth,
-  ) =>
+  const updateHealth = (update: (current: DesktopHostChannelHealth) => DesktopHostChannelHealth) =>
     Ref.modify(health, (current) => {
       const next = update(current);
       return [next, next];
@@ -475,9 +479,7 @@ export const make = Effect.fn("resourceMonitor.desktopHostChannel.make")(functio
         );
       }),
     );
-  const setDiagnosticsDemand: DesktopHostChannel["Service"]["setDiagnosticsDemand"] = (
-    enabled,
-  ) =>
+  const setDiagnosticsDemand: DesktopHostChannel["Service"]["setDiagnosticsDemand"] = (enabled) =>
     sendControlMessage({
       version: 1,
       type: "setDiagnosticsDemand",
@@ -599,7 +601,7 @@ export const make = Effect.fn("resourceMonitor.desktopHostChannel.make")(functio
         }
 
         if (message.type === "shellEnvironment") {
-          return recordContact.pipe(Effect.andThen(applyShellSnapshot(message)));
+          return recordContact.pipe(Effect.andThen(shellEnvironment.apply(message)));
         }
 
         if (message.type === "desktopUpdateStatus") {
@@ -706,6 +708,7 @@ export const make = Effect.fn("resourceMonitor.desktopHostChannel.make")(functio
   return DesktopHostChannel.of({
     latest: Ref.get(latest),
     changes: Stream.fromPubSub(changes),
+    pathChanges: shellEnvironment.pathChanges,
     subscribe: snapshotMutex.withPermits(1)(
       Effect.gen(function* () {
         const initial = yield* Ref.get(latest);
@@ -732,16 +735,12 @@ export const make = Effect.fn("resourceMonitor.desktopHostChannel.make")(functio
         });
       },
     ),
-    commitDesktopUpdate: Effect.fn("DesktopHostChannel.commitDesktopUpdate")(
-      function (requestId) {
-        return sendControlMessage({ version: 1, type: "commitDesktopUpdate", requestId });
-      },
-    ),
-    cancelDesktopUpdate: Effect.fn("DesktopHostChannel.cancelDesktopUpdate")(
-      function (requestId) {
-        return sendControlMessage({ version: 1, type: "cancelDesktopUpdate", requestId });
-      },
-    ),
+    commitDesktopUpdate: Effect.fn("DesktopHostChannel.commitDesktopUpdate")(function (requestId) {
+      return sendControlMessage({ version: 1, type: "commitDesktopUpdate", requestId });
+    }),
+    cancelDesktopUpdate: Effect.fn("DesktopHostChannel.cancelDesktopUpdate")(function (requestId) {
+      return sendControlMessage({ version: 1, type: "cancelDesktopUpdate", requestId });
+    }),
     desktopUpdates: Effect.gen(function* () {
       const subscription = yield* PubSub.subscribe(updateReportChanges);
       const initial = yield* Ref.get(latestUpdateReport);
@@ -772,6 +771,7 @@ export const layerTest = (
     DesktopHostChannel.of({
       latest,
       changes,
+      pathChanges: overrides.pathChanges ?? Stream.empty,
       subscribe:
         overrides.subscribe ??
         latest.pipe(

@@ -136,7 +136,9 @@ const makeBearerBroker = Effect.fn("clientRuntime.connection.broker.makeBearer")
         actual: profile.environmentId,
       });
     }
-    const e2eePin = { ...(profile.serverIdentityKey ? { e2eeServerIdentityKey: profile.serverIdentityKey } : {}) };
+    const e2eePin = {
+      ...(profile.serverIdentityKey ? { e2eeServerIdentityKey: profile.serverIdentityKey } : {}),
+    };
     if (profile.authorization === "t3-connect") {
       const authorized = yield* remote.authorizeDpop({
         expectedEnvironmentId: target.environmentId,
@@ -178,18 +180,15 @@ const makeBearerBroker = Effect.fn("clientRuntime.connection.broker.makeBearer")
 const makeRelayBroker = Effect.fn("clientRuntime.connection.broker.makeRelay")(function* () {
   const remote = yield* RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization;
 
-  return Effect.fnUntraced(
-    function* (target: RelayConnectionTarget) {
-      const authorized = yield* remote.authorizeDpop({
-        expectedEnvironmentId: target.environmentId,
-      });
-      return {
-        ...authorized,
-        target,
-      } satisfies PreparedConnection;
-    },
-    Effect.withSpan("clientRuntime.connection.broker.relay"),
-  );
+  return Effect.fnUntraced(function* (target: RelayConnectionTarget) {
+    const authorized = yield* remote.authorizeDpop({
+      expectedEnvironmentId: target.environmentId,
+    });
+    return {
+      ...authorized,
+      target,
+    } satisfies PreparedConnection;
+  }, Effect.withSpan("clientRuntime.connection.broker.relay"));
 });
 
 const makeSshBroker = Effect.fn("clientRuntime.connection.broker.makeSsh")(function* () {

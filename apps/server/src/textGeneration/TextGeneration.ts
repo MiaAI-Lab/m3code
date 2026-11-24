@@ -160,9 +160,11 @@ export const make = Effect.gen(function* () {
     }
 
     const selected = snapshots.find((provider) => provider.instanceId === selection.instanceId);
+    const selectedDisabled = selected?.enabled === false;
     // Only a failed probe counts: a pending one is also not installed yet.
     const unusable =
       textGeneratorCannotRun ||
+      selectedDisabled ||
       (selected?.enabled === true &&
         (!isProviderTextGenerationCapable(selected) ||
           selected.models.find((model) => model.slug === selection.model)
@@ -206,7 +208,7 @@ export const make = Effect.gen(function* () {
         substituted = true;
       } else if (localPolicy || operation !== "generateReviewGuide") return yield* noLocalModel;
     }
-    // Only a selection T3 chose; one the user picked keeps the options they gave it.
+    // Only a selection M3 chose; one the user picked keeps the options they gave it.
     if (substituted) {
       const provider = snapshots.find((candidate) => candidate.instanceId === selection.instanceId);
       if (provider?.inference === "local") selection = withLowReasoningOption(selection, provider);
@@ -216,6 +218,13 @@ export const make = Effect.gen(function* () {
         operation,
         detail:
           "Review guides need a coding agent that can read the checkout. None is ready. Pick Codex or Claude as the review guide model in Settings → Source control & issues.",
+      });
+    }
+    if (selectedDisabled && selection.instanceId === selected.instanceId) {
+      return yield* new TextGenerationError({
+        operation,
+        detail:
+          "No text generation provider is available. Enable a provider that can generate text in Settings → Providers.",
       });
     }
     return yield* installationGate.execute(
