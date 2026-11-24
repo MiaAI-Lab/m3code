@@ -7,6 +7,7 @@ import * as Schema from "effect/Schema";
 import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
 import { formatHostForUrl, isWildcardHost } from "@t3tools/shared/hostClassification";
 import packageJson from "../package.json" with { type: "json" };
+import { isMtlsEnabled } from "./auth/MtlsServer.ts";
 import type * as ServerConfig from "./config.ts";
 
 export const PersistedServerRuntimeState = Schema.Struct({
@@ -53,18 +54,28 @@ const decodePersistedServerRuntimeState = Schema.decodeUnknownEffect(
 );
 
 const runtimeOriginForConfig = (
-  config: Pick<ServerConfig.ServerConfig["Service"], "host">,
+  config: Pick<
+    ServerConfig.ServerConfig["Service"],
+    "host" | "mtlsEnabled" | "tlsCertPath" | "tlsKeyPath" | "tlsCaPath"
+  >,
   port: number,
 ): PersistedServerRuntimeState["origin"] => {
   const hostname =
     config.host && !isWildcardHost(config.host) ? formatHostForUrl(config.host) : "127.0.0.1";
-  return `http://${hostname}:${port}`;
+  const scheme = isMtlsEnabled(config) ? "https" : "http";
+  return `${scheme}://${hostname}:${port}`;
 };
 
 export const makePersistedServerRuntimeState = (input: {
   readonly config: Pick<
     ServerConfig.ServerConfig["Service"],
-    "host" | "privateNetworkOnly" | "devUrl"
+    | "host"
+    | "privateNetworkOnly"
+    | "devUrl"
+    | "mtlsEnabled"
+    | "tlsCertPath"
+    | "tlsKeyPath"
+    | "tlsCaPath"
   >;
   readonly port: number;
   readonly serviceManaged?: boolean;

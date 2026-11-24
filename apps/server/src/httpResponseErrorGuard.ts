@@ -1,9 +1,12 @@
-// These guards run on the raw Node HTTP server before Effect handles requests.
+// These guards run on the raw Node HTTP/HTTPS server before Effect handles requests.
 // @effect-diagnostics nodeBuiltinImport:off
 import type * as NodeHttp from "node:http";
+import type * as NodeHttps from "node:https";
 import type * as NodeStream from "node:stream";
 
-export function guardHttpResponseWriteErrors<T extends NodeHttp.Server>(
+type NodeHttpOrHttpsServer = NodeHttp.Server | NodeHttps.Server;
+
+export function guardHttpResponseWriteErrors<T extends NodeHttpOrHttpsServer>(
   server: T,
   onError?: (error: unknown) => void,
 ): T {
@@ -26,7 +29,7 @@ export function guardHttpResponseWriteErrors<T extends NodeHttp.Server>(
 const HTTP_KEEP_ALIVE_TIMEOUT_MS = 95_000;
 
 /** Install before `rejectRequestsUntilServing`, whose handoff starts at the next request listener. */
-export function keepIdleConnections<T extends NodeHttp.Server>(server: T): T {
+export function keepIdleConnections<T extends NodeHttpOrHttpsServer>(server: T): T {
   server.keepAliveTimeout = HTTP_KEEP_ALIVE_TIMEOUT_MS;
   // `close` drops only the connections idle at that moment. One that finishes
   // its responses later would hold shutdown for the whole keep-alive time.
@@ -51,7 +54,7 @@ export function keepIdleConnections<T extends NodeHttp.Server>(server: T): T {
  * between would hang. Install this after the write-error guards so only the
  * serving handlers trigger the handoff.
  */
-export function rejectRequestsUntilServing<T extends NodeHttp.Server>(server: T): T {
+export function rejectRequestsUntilServing<T extends NodeHttpOrHttpsServer>(server: T): T {
   const rejectRequest = (_request: NodeHttp.IncomingMessage, response: NodeHttp.ServerResponse) => {
     response.writeHead(503, { "retry-after": "1", connection: "close" }).end();
   };

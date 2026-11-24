@@ -85,6 +85,30 @@ const lanFlag = Flag.Boolean("lan").pipe(
   ),
   Flag.optional,
 );
+const mtlsFlag = Flag.Boolean("mtls").pipe(
+  Flag.withDescription(
+    "Serve over local TLS 1.3 mutual TLS (mTLS) with auto-generated local CA and client certificates (equivalent to T3CODE_MTLS).",
+  ),
+  Flag.optional,
+);
+const tlsCertFlag = Flag.String("tls-cert").pipe(
+  Flag.withDescription(
+    "Path to a PEM server certificate for local mTLS (equivalent to T3CODE_TLS_CERT).",
+  ),
+  Flag.optional,
+);
+const tlsKeyFlag = Flag.String("tls-key").pipe(
+  Flag.withDescription(
+    "Path to a PEM server private key for local mTLS (equivalent to T3CODE_TLS_KEY).",
+  ),
+  Flag.optional,
+);
+const tlsCaFlag = Flag.String("tls-ca").pipe(
+  Flag.withDescription(
+    "Path to a PEM client CA bundle for local mTLS (equivalent to T3CODE_TLS_CA).",
+  ),
+  Flag.optional,
+);
 
 const EnvServerConfig = Config.all({
   logLevel: Config.LogLevel("T3CODE_LOG_LEVEL").pipe(Config.withDefault("Info")),
@@ -130,6 +154,16 @@ const EnvServerConfig = Config.all({
     Config.map(Option.getOrUndefined),
   ),
   lan: Config.Boolean("T3CODE_LAN").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  mtlsEnabled: Config.Boolean("T3CODE_MTLS").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  tlsCertPath: Config.String("T3CODE_TLS_CERT").pipe(
+    Config.option,
+    Config.map(Option.getOrUndefined),
+  ),
+  tlsKeyPath: Config.String("T3CODE_TLS_KEY").pipe(
+    Config.option,
+    Config.map(Option.getOrUndefined),
+  ),
+  tlsCaPath: Config.String("T3CODE_TLS_CA").pipe(Config.option, Config.map(Option.getOrUndefined)),
 });
 
 const DevAuthTokenConfig = Config.Redacted("T3CODE_DEV_AUTH_TOKEN").pipe(
@@ -166,6 +200,10 @@ export interface CliServerFlags {
   readonly tailscaleServeEnabled: Option.Option<boolean>;
   readonly tailscaleServePort: Option.Option<number>;
   readonly lan: Option.Option<boolean>;
+  readonly mtlsEnabled: Option.Option<boolean>;
+  readonly tlsCertPath: Option.Option<string>;
+  readonly tlsKeyPath: Option.Option<string>;
+  readonly tlsCaPath: Option.Option<string>;
 }
 
 export interface CliAuthLocationFlags {
@@ -201,6 +239,10 @@ export const sharedServerCommandFlags = {
   tailscaleServeEnabled: tailscaleServeFlag,
   tailscaleServePort: tailscaleServePortFlag,
   lan: lanFlag,
+  mtlsEnabled: mtlsFlag,
+  tlsCertPath: tlsCertFlag,
+  tlsKeyPath: tlsKeyFlag,
+  tlsCaPath: tlsCaFlag,
 } as const;
 
 const resolveOptionPrecedence = <Value>(
@@ -208,7 +250,12 @@ const resolveOptionPrecedence = <Value>(
 ): Option.Option<Value> => Option.firstSomeOf(values);
 
 export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(function* (
-  flags: CliServerFlags,
+  flags: Omit<CliServerFlags, "mtlsEnabled" | "tlsCertPath" | "tlsKeyPath" | "tlsCaPath"> & {
+    readonly mtlsEnabled?: Option.Option<boolean> | undefined;
+    readonly tlsCertPath?: Option.Option<string> | undefined;
+    readonly tlsKeyPath?: Option.Option<string> | undefined;
+    readonly tlsCaPath?: Option.Option<string> | undefined;
+  },
   cliLogLevel: Option.Option<LogLevel.LogLevel>,
   options?: {
     readonly startupPresentation?: ServerConfig.StartupPresentation;
@@ -238,6 +285,10 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     tailscaleServeEnabled: flags.tailscaleServeEnabled ?? Option.none(),
     tailscaleServePort: flags.tailscaleServePort ?? Option.none(),
     lan: flags.lan ?? Option.none(),
+    mtlsEnabled: flags.mtlsEnabled ?? Option.none(),
+    tlsCertPath: flags.tlsCertPath ?? Option.none(),
+    tlsKeyPath: flags.tlsKeyPath ?? Option.none(),
+    tlsCaPath: flags.tlsCaPath ?? Option.none(),
   } satisfies CliServerFlags;
   const bootstrapFd = Option.getOrUndefined(normalizedFlags.bootstrapFd) ?? env.bootstrapFd;
   const bootstrapEnvelope =
@@ -366,6 +417,23 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     ),
     () => 443,
   );
+  const mtlsEnabled = Option.getOrUndefined(
+    resolveOptionPrecedence(normalizedFlags.mtlsEnabled, Option.fromUndefinedOr(env.mtlsEnabled)),
+  );
+  const resolveOptionalPath = (flagValue: Option.Option<string>, envValue: string | undefined) =>
+    Option.match(
+      resolveOptionPrecedence(flagValue, Option.fromUndefinedOr(envValue)).pipe(
+        Option.filter((value) => value.trim().length > 0),
+      ),
+      {
+        onNone: () => Effect.undefined,
+        onSome: (raw) =>
+          expandHomePath(raw.trim()).pipe(Effect.map((expanded) => path.resolve(expanded))),
+      },
+    );
+  const tlsCertPath = yield* resolveOptionalPath(normalizedFlags.tlsCertPath, env.tlsCertPath);
+  const tlsKeyPath = yield* resolveOptionalPath(normalizedFlags.tlsKeyPath, env.tlsKeyPath);
+  const tlsCaPath = yield* resolveOptionalPath(normalizedFlags.tlsCaPath, env.tlsCaPath);
   const staticDir = devUrl ? undefined : yield* ServerConfig.resolveStaticDir();
   const explicitHost = resolveOptionPrecedence(
     normalizedFlags.host,
@@ -418,6 +486,10 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     logWebSocketEvents,
     tailscaleServeEnabled,
     tailscaleServePort,
+    ...(mtlsEnabled === undefined ? {} : { mtlsEnabled }),
+    ...(tlsCertPath === undefined ? {} : { tlsCertPath }),
+    ...(tlsKeyPath === undefined ? {} : { tlsKeyPath }),
+    ...(tlsCaPath === undefined ? {} : { tlsCaPath }),
   };
 
   return config;
@@ -443,6 +515,10 @@ export const resolveCliAuthConfig = (
       tailscaleServeEnabled: Option.none(),
       tailscaleServePort: Option.none(),
       lan: Option.none(),
+      mtlsEnabled: Option.none(),
+      tlsCertPath: Option.none(),
+      tlsKeyPath: Option.none(),
+      tlsCaPath: Option.none(),
     },
     cliLogLevel,
   );

@@ -183,6 +183,11 @@ import {
 } from "./cloud/config.ts";
 import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
 import * as EnvironmentAuthPolicy from "./auth/EnvironmentAuthPolicy.ts";
+import {
+  createMtlsHttpsServer,
+  isMtlsEnabled,
+  resolveMtlsServerConfig,
+} from "./auth/MtlsServer.ts";
 import * as CloudHttp from "./cloud/http.ts";
 import * as GuestHttp from "./guest/http.ts";
 import * as CloudLink from "./cloud/CloudLink.ts";
@@ -298,14 +303,10 @@ const layerResourceMonitor = ResourceMonitor.layer.pipe(
   Layer.provideMerge(layerDesktopHostChannel),
 );
 
-const layerHostPowerMonitor = HostPowerMonitor.layer.pipe(
-  Layer.provide(layerDesktopHostChannel),
-);
+const layerHostPowerMonitor = HostPowerMonitor.layer.pipe(Layer.provide(layerDesktopHostChannel));
 
 // A fresh receiver layer would open a second reader on the desktop host channel fd.
-const layerDesktopAppUpdate = DesktopAppUpdate.layer.pipe(
-  Layer.provide(layerDesktopHostChannel),
-);
+const layerDesktopAppUpdate = DesktopAppUpdate.layer.pipe(Layer.provide(layerDesktopHostChannel));
 
 const layerBackground = BackgroundPolicy.layer.pipe(
   Layer.provide(layerHostPowerMonitor),
@@ -374,10 +375,40 @@ const layerHttpServer = Layer.unwrap(
     });
     yield* ManagedLimits.closeTailscaleServeTo(policy, { host: bindHost, port: config.port });
     const runSync = Effect.runSyncWith(yield* Effect.context<never>());
+    const mtlsResolved = isMtlsEnabled(config)
+      ? yield* resolveMtlsServerConfig({
+          enabled: true,
+          mtlsDir: config.mtlsDir,
+          host: bindHost,
+          certPath: config.tlsCertPath,
+          keyPath: config.tlsKeyPath,
+          caPath: config.tlsCaPath,
+        })
+      : undefined;
+    if (mtlsResolved !== undefined) {
+      yield* Effect.logInfo("Starting local TLS 1.3 mTLS server", {
+        caFingerprint256: mtlsResolved.caFingerprint256,
+        serverFingerprint256: mtlsResolved.serverFingerprint256,
+        managedPki: mtlsResolved.isManagedPki,
+      });
+    }
     return NodeHttpServer.layer(
       () => {
+        const rawServer =
+          mtlsResolved !== undefined
+            ? createMtlsHttpsServer(mtlsResolved, {
+                onRevokedClient: (peer) => {
+                  runSync(
+                    Effect.logWarning("Rejected revoked mTLS client certificate", {
+                      serialNumber: peer.serialNumber,
+                      fingerprint256: peer.fingerprint256,
+                    }),
+                  );
+                },
+              })
+            : NodeHttp.createServer();
         const server = rejectRequestsUntilServing(
-          keepIdleConnections(guardHttpResponseWriteErrors(NodeHttp.createServer())),
+          keepIdleConnections(guardHttpResponseWriteErrors(rawServer)),
         );
         if (config.privateNetworkOnly) {
           runSync(closeNonPrivateNetworkConnections(server));
@@ -1177,7 +1208,8 @@ const layerMakeServer = Layer.unwrap(
             const server = yield* HttpServer.HttpServer;
             const address = server.address;
             if (typeof address === "string" || !("port" in address)) return;
-            const localOrigin = `http://${loopbackUrlHostForAddress(address)}:${address.port}`;
+            const localScheme = isMtlsEnabled(config) ? "https" : "http";
+            const localOrigin = `${localScheme}://${loopbackUrlHostForAddress(address)}:${address.port}`;
             const endpointRuntime = yield* CloudManagedEndpointRuntime.CloudManagedEndpointRuntime;
             const runManagedTunnelRecovery = yield* makeManagedTunnelRecovery({
               recover: (config: RelayManagedEndpointRuntimeConfig) =>
@@ -1367,9 +1399,7 @@ const layerMakeServer = Layer.unwrap(
     const layerRoutes = HttpRouter.serve(layerMakeRoutes.pipe(Layer.provide(layerLauncher)), {
       disableLogger: !config.logWebSocketEvents,
       routerConfig: HTTP_ROUTER_CONFIG,
-    }).pipe(
-      Layer.tap(() => Deferred.succeed(routesReady, undefined).pipe(Effect.orDie)),
-    );
+    }).pipe(Layer.tap(() => Deferred.succeed(routesReady, undefined).pipe(Effect.orDie)));
     const layerServerApplication = Layer.mergeAll(
       layerRoutes,
       layerHttpListening,

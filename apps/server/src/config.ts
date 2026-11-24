@@ -41,6 +41,7 @@ export interface ServerDerivedPaths {
   readonly environmentIdPath: string;
   readonly serverRuntimeStatePath: string;
   readonly secretsDir: string;
+  readonly mtlsDir: string;
 }
 
 export interface DeriveServerPathsOptions {
@@ -77,6 +78,10 @@ export class ServerConfig extends Context.Service<
     readonly logWebSocketEvents: boolean;
     readonly tailscaleServeEnabled: boolean;
     readonly tailscaleServePort: number;
+    readonly mtlsEnabled?: boolean | undefined;
+    readonly tlsCertPath?: string | undefined;
+    readonly tlsKeyPath?: string | undefined;
+    readonly tlsCaPath?: string | undefined;
   }
 >()("t3/config/ServerConfig") {
   static readonly layerTest = (
@@ -122,6 +127,7 @@ export const deriveServerPaths = Effect.fn(function* (
     environmentIdPath: join(stateDir, "environment-id"),
     serverRuntimeStatePath: join(stateDir, "server-runtime.json"),
     secretsDir: join(stateDir, "secrets"),
+    mtlsDir: join(stateDir, "mtls"),
   };
 });
 
