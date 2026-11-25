@@ -26,7 +26,8 @@ const repoEnv = loadRepoEnv();
 Object.assign(process.env, repoEnv);
 
 // Signal single-origin dev explicitly; loadRepoEnv can restore deleted URL keys from .env.
-const isSingleOriginDev = process.env.T3CODE_SINGLE_ORIGIN_DEV === "1";
+const isSingleOriginDev =
+  (process.env.M3CODE_SINGLE_ORIGIN_DEV ?? process.env.T3CODE_SINGLE_ORIGIN_DEV) === "1";
 
 const port = Number(process.env.PORT ?? 5733);
 const explicitHost = process.env.HOST?.trim();
@@ -216,7 +217,10 @@ function resolveDevProxyTarget(
   }
 }
 
-const devProxyTarget = resolveDevProxyTarget(process.env.T3CODE_PORT, configuredWsUrl);
+const devProxyTarget = resolveDevProxyTarget(
+  process.env.M3CODE_PORT ?? process.env.T3CODE_PORT,
+  configuredWsUrl,
+);
 
 // Brotli quality 5 encodes in hundreds of ms; default quality 11 would replace transfer stalls with encode stalls.
 function devCompressionPlugin(): Plugin {

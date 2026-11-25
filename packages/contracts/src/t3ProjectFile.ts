@@ -5,7 +5,8 @@ import { ThreadEnvMode, WorktreeSubmodules } from "./environment.ts";
 import { ProjectScriptIcon } from "./project.ts";
 import type { ProjectScopedServerSettingKey, ServerSettings } from "./settings.ts";
 
-export const T3_PROJECT_FILE_NAME = "t3.json";
+export const T3_PROJECT_FILE_NAME = "m3.json";
+export const LEGACY_T3_PROJECT_FILE_NAME = "t3.json";
 
 export const T3_PROJECT_FILE_SCHEMA_URL = "https://t3.codes/schema/t3.json";
 

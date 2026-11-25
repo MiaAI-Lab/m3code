@@ -15,9 +15,9 @@ const devBundleIdSuffix = NodePath.basename(repoRoot)
   .replaceAll(/[^a-z0-9]+/g, "");
 const APP_DISPLAY_NAME = isDevelopment ? "M3 Code (Dev)" : "M3 Code (Beta)";
 const APP_BUNDLE_ID = isDevelopment
-  ? `com.t3tools.t3code.dev.${devBundleIdSuffix || "local"}`
-  : "com.t3tools.t3code";
-const APP_PROTOCOL_SCHEMES = isDevelopment ? ["t3code-dev"] : ["t3code"];
+  ? `com.m3code.m3code.dev.${devBundleIdSuffix || "local"}`
+  : "com.m3code.m3code";
+const APP_PROTOCOL_SCHEMES = isDevelopment ? ["m3code-dev", "t3code-dev"] : ["m3code", "t3code"];
 const LAUNCHER_VERSION = 21;
 const developmentMacIconPngPath = NodePath.join(
   repoRoot,
@@ -109,10 +109,10 @@ function shellSingleQuote(value) {
 export function makeDevelopmentEnvironmentScript(environment) {
   const envEntries = [
     ["VITE_DEV_SERVER_URL", environment.VITE_DEV_SERVER_URL],
-    ["T3CODE_PORT", environment.T3CODE_PORT],
-    ["T3CODE_HOME", environment.T3CODE_HOME],
-    ["T3CODE_COMMIT_HASH", environment.T3CODE_COMMIT_HASH],
-    ["T3CODE_DESKTOP_APP_USER_MODEL_ID", APP_BUNDLE_ID],
+    ["M3CODE_PORT", environment.M3CODE_PORT ?? environment.T3CODE_PORT],
+    ["M3CODE_HOME", environment.M3CODE_HOME ?? environment.T3CODE_HOME],
+    ["M3CODE_COMMIT_HASH", environment.M3CODE_COMMIT_HASH ?? environment.T3CODE_COMMIT_HASH],
+    ["M3CODE_DESKTOP_APP_USER_MODEL_ID", APP_BUNDLE_ID],
   ].filter((entry) => typeof entry[1] === "string" && entry[1].trim().length > 0);
   return [
     ...envEntries.map(

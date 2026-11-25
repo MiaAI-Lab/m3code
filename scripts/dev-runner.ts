@@ -67,9 +67,24 @@ function sharedBackendTargetHost(host: string | undefined): string {
   return "127.0.0.1";
 }
 
-export const DEFAULT_T3_HOME = Effect.map(Effect.service(Path.Path), (path) =>
-  path.join(NodeOS.homedir(), ".t3"),
-);
+export const DEFAULT_T3_HOME = Effect.gen(function* () {
+  const path = yield* Path.Path;
+  const home = NodeOS.homedir();
+  const m3Dir = path.join(home, ".m3");
+  const legacyT3Dir = path.join(home, ".t3");
+  const maybeFs = yield* Effect.serviceOption(FileSystem.FileSystem);
+  if (Option.isSome(maybeFs)) {
+    const fs = maybeFs.value;
+    const hasM3 = yield* fs.exists(m3Dir).pipe(Effect.orElseSucceed(() => false));
+    if (!hasM3) {
+      const hasLegacyT3 = yield* fs.exists(legacyT3Dir).pipe(Effect.orElseSucceed(() => false));
+      if (hasLegacyT3) {
+        return legacyT3Dir;
+      }
+    }
+  }
+  return m3Dir;
+});
 
 const MODE_ARGS = {
   dev: [
@@ -208,19 +223,32 @@ const optionalStringConfig = (name: string): Config.Config<string | undefined> =
     Config.option,
     Config.map((value) => Option.getOrUndefined(value)),
   );
-const optionalBooleanConfig = (name: string): Config.Config<boolean | undefined> =>
-  Config.Boolean(name).pipe(
-    Config.option,
-    Config.map((value) => Option.getOrUndefined(value)),
-  );
-const optionalIntegerConfig = (name: string): Config.Config<number | undefined> =>
-  Config.Int(name).pipe(
-    Config.option,
-    Config.map((value) => Option.getOrUndefined(value)),
+const optionalBooleanWithLegacy = (
+  primary: string,
+  legacy: string,
+): Config.Config<boolean | undefined> =>
+  Config.all([
+    Config.Boolean(primary).pipe(Config.option),
+    Config.Boolean(legacy).pipe(Config.option),
+  ]).pipe(Config.map(([next, prev]) => Option.getOrUndefined(Option.orElse(next, () => prev))));
+const optionalIntegerWithLegacy = (
+  primary: string,
+  legacy: string,
+): Config.Config<number | undefined> =>
+  Config.all([
+    Config.Int(primary).pipe(Config.option),
+    Config.Int(legacy).pipe(Config.option),
+  ]).pipe(Config.map(([next, prev]) => Option.getOrUndefined(Option.orElse(next, () => prev))));
+const optionalStringWithLegacy = (
+  primary: string,
+  legacy: string,
+): Config.Config<string | undefined> =>
+  Config.all([optionalStringConfig(primary), optionalStringConfig(legacy)]).pipe(
+    Config.map(([next, prev]) => (next?.trim() ? next : prev)),
   );
 const OffsetConfig = Config.all({
-  portOffset: optionalIntegerConfig("T3CODE_PORT_OFFSET"),
-  devInstance: optionalStringConfig("T3CODE_DEV_INSTANCE"),
+  portOffset: optionalIntegerWithLegacy("M3CODE_PORT_OFFSET", "T3CODE_PORT_OFFSET"),
+  devInstance: optionalStringWithLegacy("M3CODE_DEV_INSTANCE", "T3CODE_DEV_INSTANCE"),
 });
 
 export function resolveOffset(config: {
@@ -330,12 +358,17 @@ export const createDevRunnerEnv = Effect.fn("dev-runner.createDevRunnerEnv")(fun
   };
 
   const path = yield* Path.Path;
-  // The server stores an explicit home's state in userdata, which for ~/.t3 is the live
-  // install. Left implicit, dev state goes to ~/.t3/dev.
-  const isLiveHome = resolvedBaseDir === path.join(yield* HostProcess.HomeDirectory, ".t3");
+  const homeDirectory = yield* HostProcess.HomeDirectory;
+  // The server stores an explicit home's state in userdata, which for ~/.m3 or legacy ~/.t3 is
+  // the live install. Left implicit, dev state goes to <home>/dev.
+  const isLiveHome =
+    resolvedBaseDir === path.join(homeDirectory, ".m3") ||
+    resolvedBaseDir === path.join(homeDirectory, ".t3");
   if (configuredBaseDir !== undefined && !isLiveHome) {
-    output.T3CODE_HOME = resolvedBaseDir;
+    output.M3CODE_HOME = resolvedBaseDir;
+    delete output.T3CODE_HOME;
   } else {
+    delete output.M3CODE_HOME;
     delete output.T3CODE_HOME;
   }
 
@@ -345,7 +378,8 @@ export const createDevRunnerEnv = Effect.fn("dev-runner.createDevRunnerEnv")(fun
   delete output.T3_BOOT_SERVICE_UNIT;
 
   if (!isDesktopMode) {
-    output.T3CODE_PORT = String(serverPort);
+    output.M3CODE_PORT = String(serverPort);
+    delete output.T3CODE_PORT;
     // An inherited HOST pins Vite's HMR socket via explicitHost in apps/web/vite.config.ts.
     // Only desktop mode should set it.
     delete output.HOST;
@@ -359,60 +393,80 @@ export const createDevRunnerEnv = Effect.fn("dev-runner.createDevRunnerEnv")(fun
       // which merges `.env`/`.env.local` *under* this env, so a developer
       // with either URL in their `.env` would get it back and silently lose
       // single-origin mode.
-      output.T3CODE_SINGLE_ORIGIN_DEV = "1";
+      output.M3CODE_SINGLE_ORIGIN_DEV = "1";
+      delete output.T3CODE_SINGLE_ORIGIN_DEV;
     } else {
       output.VITE_HTTP_URL = `http://localhost:${serverPort}`;
       output.VITE_WS_URL = `ws://localhost:${serverPort}`;
+      delete output.M3CODE_SINGLE_ORIGIN_DEV;
       delete output.T3CODE_SINGLE_ORIGIN_DEV;
     }
   } else {
-    output.T3CODE_PORT = String(serverPort);
+    output.M3CODE_PORT = String(serverPort);
+    delete output.T3CODE_PORT;
     output.VITE_HTTP_URL = `http://${DESKTOP_DEV_LOOPBACK_HOST}:${serverPort}`;
     output.VITE_WS_URL = `ws://${DESKTOP_DEV_LOOPBACK_HOST}:${serverPort}`;
     // Desktop pins the renderer to loopback on purpose; an ambient marker
     // must not make Vite drop those URLs.
+    delete output.M3CODE_SINGLE_ORIGIN_DEV;
     delete output.T3CODE_SINGLE_ORIGIN_DEV;
+    delete output.M3CODE_MODE;
     delete output.T3CODE_MODE;
+    delete output.M3CODE_NO_BROWSER;
     delete output.T3CODE_NO_BROWSER;
+    delete output.M3CODE_DEV_AUTH_TOKEN;
     delete output.T3CODE_DEV_AUTH_TOKEN;
   }
 
   // Agent shells inherit the parent T3 server's bind settings; only --host widens the dev server.
+  delete output.M3CODE_LAN;
   delete output.T3CODE_LAN;
   if (!isDesktopMode && host !== undefined) {
-    output.T3CODE_HOST = host;
+    output.M3CODE_HOST = host;
+    delete output.T3CODE_HOST;
   } else {
+    delete output.M3CODE_HOST;
     delete output.T3CODE_HOST;
   }
 
   if (!isDesktopMode) {
-    output.T3CODE_NO_BROWSER = browser === true ? "0" : "1";
+    output.M3CODE_NO_BROWSER = browser === true ? "0" : "1";
+    delete output.T3CODE_NO_BROWSER;
   }
 
   if (autoBootstrapProjectFromCwd !== undefined) {
-    output.T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD = autoBootstrapProjectFromCwd ? "1" : "0";
+    output.M3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD = autoBootstrapProjectFromCwd ? "1" : "0";
+    delete output.T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD;
   } else {
+    delete output.M3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD;
     delete output.T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD;
   }
 
   if (logWebSocketEvents !== undefined) {
-    output.T3CODE_LOG_WS_EVENTS = logWebSocketEvents ? "1" : "0";
+    output.M3CODE_LOG_WS_EVENTS = logWebSocketEvents ? "1" : "0";
+    delete output.T3CODE_LOG_WS_EVENTS;
   } else {
+    delete output.M3CODE_LOG_WS_EVENTS;
     delete output.T3CODE_LOG_WS_EVENTS;
   }
 
   if (mode === "dev") {
-    output.T3CODE_MODE = "web";
+    output.M3CODE_MODE = "web";
+    delete output.T3CODE_MODE;
+    delete output.M3CODE_DESKTOP_WS_URL;
     delete output.T3CODE_DESKTOP_WS_URL;
   }
 
   if (mode === "dev:server" || mode === "dev:web") {
-    output.T3CODE_MODE = "web";
+    output.M3CODE_MODE = "web";
+    delete output.T3CODE_MODE;
+    delete output.M3CODE_DESKTOP_WS_URL;
     delete output.T3CODE_DESKTOP_WS_URL;
   }
 
   if (isDesktopMode) {
     output.HOST = DESKTOP_DEV_LOOPBACK_HOST;
+    delete output.M3CODE_DESKTOP_WS_URL;
     delete output.T3CODE_DESKTOP_WS_URL;
   }
 
@@ -639,7 +693,10 @@ const prepareFirstStart = Effect.fn("dev-runner.prepareFirstStart")(function* (i
         );
       }
     }
-    const source = path.join(yield* HostProcess.HomeDirectory, ".t3", "userdata", "statev2.sqlite");
+    const homeDir = yield* HostProcess.HomeDirectory;
+    const m3Source = path.join(homeDir, ".m3", "userdata", "statev2.sqlite");
+    const legacyT3Source = path.join(homeDir, ".t3", "userdata", "statev2.sqlite");
+    const source = (yield* exists(m3Source)) ? m3Source : legacyT3Source;
     // A V1 state.sqlite counts as data too: the server imports it only while
     // statev2.sqlite is missing, so seeding would hide it.
     if (
@@ -655,7 +712,7 @@ const prepareFirstStart = Effect.fn("dev-runner.prepareFirstStart")(function* (i
           );
         } else {
           yield* Effect.logInfo(
-            `[dev-runner] seeding ${input.worktreeHome} from ${source} (read-only). --no-seed or T3CODE_DEV_SEED=0 skips this.`,
+            `[dev-runner] seeding ${input.worktreeHome} from ${source} (read-only). --no-seed or M3CODE_DEV_SEED=0 skips this.`,
           );
           yield* runRepoScript(
             "apps/server/scripts/migrate-dev-db.ts",
@@ -780,7 +837,7 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
   const resolvedT3Home =
     (input.t3Home?.trim() || undefined) ??
     worktreeHome ??
-    (hostEnvironment.T3CODE_HOME?.trim() || undefined);
+    (hostEnvironment.M3CODE_HOME?.trim() || hostEnvironment.T3CODE_HOME?.trim() || undefined);
   const env = yield* createDevRunnerEnv({
     mode: input.mode,
     baseEnv: hostEnvironment,
@@ -799,10 +856,10 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
     serverOffset !== offset || webOffset !== offset
       ? ` selectedOffset(server=${serverOffset},web=${webOffset})`
       : "";
-  const baseDir = env.T3CODE_HOME ?? (yield* DEFAULT_T3_HOME);
+  const baseDir = env.M3CODE_HOME ?? env.T3CODE_HOME ?? (yield* DEFAULT_T3_HOME);
 
   yield* Effect.logInfo(
-    `[dev-runner] mode=${input.mode} source=${source}${selectionSuffix} serverPort=${String(env.T3CODE_PORT)} webPort=${String(env.PORT)} baseDir=${baseDir}`,
+    `[dev-runner] mode=${input.mode} source=${source}${selectionSuffix} serverPort=${String(env.M3CODE_PORT ?? env.T3CODE_PORT)} webPort=${String(env.PORT)} baseDir=${baseDir}`,
   );
 
   // Before the share block: --dry-run only resolves and prints. Sharing would
@@ -835,7 +892,7 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
           ...(input.built
             ? {
                 localTarget: {
-                  port: Number(env.T3CODE_PORT),
+                  port: Number(env.M3CODE_PORT ?? env.T3CODE_PORT),
                   host: sharedBackendTargetHost(input.host),
                 },
               }
@@ -869,24 +926,25 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
         // The app is reached from the tailnet origin. Vite already allows
         // *.ts.net hosts; the backend needs the origin for credentialed
         // requests that bypass the proxy (desktop renderer, direct calls).
-        env.T3CODE_DEV_ALLOWED_ORIGINS = [
-          env.T3CODE_DEV_ALLOWED_ORIGINS,
+        env.M3CODE_DEV_ALLOWED_ORIGINS = [
+          env.M3CODE_DEV_ALLOWED_ORIGINS ?? env.T3CODE_DEV_ALLOWED_ORIGINS,
           new URL(shared.url).origin,
         ]
           .filter((entry) => entry && entry.length > 0)
           .join(",");
+        delete env.T3CODE_DEV_ALLOWED_ORIGINS;
         if (input.devUrl === undefined) {
           env.VITE_DEV_SERVER_URL = shared.url;
         }
         if (input.built) {
           built = true;
-          env.T3CODE_BUILT_DEV = "1";
-        } else if (env.T3CODE_BUNDLED_DEV === undefined) {
+          env.M3CODE_BUILT_DEV = "1";
+        } else if ((env.M3CODE_BUNDLED_DEV ?? env.T3CODE_BUNDLED_DEV) === undefined) {
           // A shared origin serves a remote browser, where unbundled dev's
           // per-module requests each pay a tailnet round trip — a cold module
           // graph takes minutes to first paint. Bundled dev collapses that to a
           // few chunk requests.
-          env.T3CODE_BUNDLED_DEV = "1";
+          env.M3CODE_BUNDLED_DEV = "1";
         }
         yield* Effect.logInfo(`[dev-runner] shared on tailnet: ${shared.url}`);
       } else if (input.built) {
@@ -979,14 +1037,23 @@ const devRunnerCli = Command.make("dev-runner", {
   ),
   autoBootstrapProjectFromCwd: Flag.Boolean("auto-bootstrap-project-from-cwd").pipe(
     Flag.withDescription(
-      "Auto-bootstrap toggle (equivalent to T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD).",
+      "Auto-bootstrap toggle (equivalent to M3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD / T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD).",
     ),
-    Flag.withFallbackConfig(optionalBooleanConfig("T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD")),
+    Flag.withFallbackConfig(
+      optionalBooleanWithLegacy(
+        "M3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD",
+        "T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD",
+      ),
+    ),
   ),
   logWebSocketEvents: Flag.Boolean("log-websocket-events").pipe(
-    Flag.withDescription("WebSocket event logging toggle (equivalent to T3CODE_LOG_WS_EVENTS)."),
+    Flag.withDescription(
+      "WebSocket event logging toggle (equivalent to M3CODE_LOG_WS_EVENTS / T3CODE_LOG_WS_EVENTS).",
+    ),
     Flag.withAlias("log-ws-events"),
-    Flag.withFallbackConfig(optionalBooleanConfig("T3CODE_LOG_WS_EVENTS")),
+    Flag.withFallbackConfig(
+      optionalBooleanWithLegacy("M3CODE_LOG_WS_EVENTS", "T3CODE_LOG_WS_EVENTS"),
+    ),
   ),
   host: Flag.String("host").pipe(
     Flag.withDescription(
@@ -1023,9 +1090,9 @@ const devRunnerCli = Command.make("dev-runner", {
   ),
   seed: Flag.Boolean("seed").pipe(
     Flag.withDescription(
-      "Seed an empty worktree database from ~/.t3 on first start (read-only, via migrate-dev-db) if the source is at most 500 MiB. On by default; --no-seed or T3CODE_DEV_SEED=0 skips it.",
+      "Seed an empty worktree database from ~/.m3 (or legacy ~/.t3) on first start (read-only, via migrate-dev-db) if the source is at most 500 MiB. On by default; --no-seed or M3CODE_DEV_SEED=0 skips it.",
     ),
-    Flag.withFallbackConfig(optionalBooleanConfig("T3CODE_DEV_SEED")),
+    Flag.withFallbackConfig(optionalBooleanWithLegacy("M3CODE_DEV_SEED", "T3CODE_DEV_SEED")),
   ),
   built: Flag.Boolean("built").pipe(
     Flag.withDescription(
@@ -1036,13 +1103,13 @@ const devRunnerCli = Command.make("dev-runner", {
   memoryLimitGb: Flag.Int("memory-limit-gb").pipe(
     Flag.withSchema(NonNegativeInt),
     Flag.withDescription(
-      "Stop the dev server when it and its child processes use more than this many GiB of RAM plus swap (equivalent to T3CODE_DEV_MEMORY_LIMIT_GB). Defaults to half of RAM, at most 16. 0 turns it off. Linux only.",
+      "Stop the dev server when it and its child processes use more than this many GiB of RAM plus swap (equivalent to M3CODE_DEV_MEMORY_LIMIT_GB / T3CODE_DEV_MEMORY_LIMIT_GB). Defaults to half of RAM, at most 16. 0 turns it off. Linux only.",
     ),
     Flag.withFallbackConfig(
-      Config.schema(NonNegativeInt, "T3CODE_DEV_MEMORY_LIMIT_GB").pipe(
-        Config.option,
-        Config.map(Option.getOrUndefined),
-      ),
+      Config.all([
+        Config.schema(NonNegativeInt, "M3CODE_DEV_MEMORY_LIMIT_GB").pipe(Config.option),
+        Config.schema(NonNegativeInt, "T3CODE_DEV_MEMORY_LIMIT_GB").pipe(Config.option),
+      ]).pipe(Config.map(([next, prev]) => Option.getOrUndefined(Option.orElse(next, () => prev)))),
     ),
   ),
   runArgs: Argument.String("run-arg").pipe(

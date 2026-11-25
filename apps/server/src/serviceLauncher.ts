@@ -1585,9 +1585,11 @@ export interface LauncherOptions {
 }
 
 export async function main(options: LauncherOptions = {}): Promise<void> {
-  const baseDir = options.baseDir ?? process.env.T3CODE_HOME;
+  const baseDir =
+    options.baseDir ??
+    (process.env.M3CODE_HOME?.trim() || process.env.T3CODE_HOME?.trim() || undefined);
   if (baseDir === undefined || baseDir.trim() === "") {
-    throw new Error("T3CODE_HOME is required by the M3 Code service launcher.");
+    throw new Error("M3CODE_HOME (or T3CODE_HOME) is required by the M3 Code service launcher.");
   }
   const output =
     options.logFile === undefined ? undefined : NodeFS.openSync(options.logFile, "a", 0o600);

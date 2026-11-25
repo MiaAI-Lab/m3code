@@ -53,6 +53,8 @@ export const resolveGitWorktreePath = Effect.fn("devHome.resolveGitWorktreePath"
 /**
  * Deliberately does not require the directory to exist yet: falling back
  * because it is missing would send callers at the shared home.
+ * Uses `.m3` for fresh worktrees, falling back to an existing `.t3` directory
+ * so existing worktree state is preserved.
  */
 export const resolveWorktreeT3Home = Effect.fn("devHome.resolveWorktreeT3Home")(function* (
   cwd: string,
@@ -61,6 +63,18 @@ export const resolveWorktreeT3Home = Effect.fn("devHome.resolveWorktreeT3Home")(
   if (worktreePath === undefined) {
     return undefined;
   }
+  const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  return path.join(worktreePath, ".t3");
+  const m3Dir = path.join(worktreePath, ".m3");
+  const legacyT3Dir = path.join(worktreePath, ".t3");
+  const hasM3 = yield* fileSystem.exists(m3Dir).pipe(Effect.orElseSucceed(() => false));
+  if (!hasM3) {
+    const hasLegacyT3 = yield* fileSystem
+      .exists(legacyT3Dir)
+      .pipe(Effect.orElseSucceed(() => false));
+    if (hasLegacyT3) {
+      return legacyT3Dir;
+    }
+  }
+  return m3Dir;
 });

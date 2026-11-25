@@ -258,10 +258,32 @@ export const expandHomePath = Effect.fn(function* (input: string) {
   return input;
 });
 
+/**
+ * Resolves `<home>/.m3` by default, falling back to `<home>/.t3` when `.m3` does not exist yet
+ * and `.t3` already exists so existing state and paired devices remain intact.
+ */
+export const resolveDefaultHomeBaseDir = Effect.fn(function* (home: string) {
+  const { join } = yield* Path.Path;
+  const m3Dir = join(home, ".m3");
+  const legacyT3Dir = join(home, ".t3");
+  const maybeFs = yield* Effect.serviceOption(FileSystem.FileSystem);
+  if (Option.isSome(maybeFs)) {
+    const fs = maybeFs.value;
+    const hasM3 = yield* fs.exists(m3Dir).pipe(Effect.orElseSucceed(() => false));
+    if (!hasM3) {
+      const hasLegacyT3 = yield* fs.exists(legacyT3Dir).pipe(Effect.orElseSucceed(() => false));
+      if (hasLegacyT3) {
+        return legacyT3Dir;
+      }
+    }
+  }
+  return m3Dir;
+});
+
 export const resolveBaseDir = Effect.fn(function* (raw: string | undefined) {
-  const { join, resolve } = yield* Path.Path;
+  const { resolve } = yield* Path.Path;
   if (!raw || raw.trim().length === 0) {
-    return join(yield* HostProcess.HomeDirectory, ".t3");
+    return yield* resolveDefaultHomeBaseDir(yield* HostProcess.HomeDirectory);
   }
   return resolve(yield* expandHomePath(raw.trim()));
 });
