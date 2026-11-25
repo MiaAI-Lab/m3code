@@ -167,6 +167,84 @@ it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("t3 uninstall com
       assert.include(output, input.output);
     }),
   );
+
+  it.effect("removes baseDir, userdata, caches, app data, and desktop CLI shim with --all --yes", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const homeDir = yield* fs.makeTempDirectoryScoped({ prefix: "m3-uninstall-all-home-" });
+      const baseDir = path.join(homeDir, ".m3");
+      const userdataFile = path.join(baseDir, "userdata", "statev2.sqlite");
+      const cacheFile = path.join(homeDir, ".cache", "m3code", "cache.bin");
+      const configFile = path.join(homeDir, ".config", "t3code-v2", "Preferences");
+      const desktopShim = path.join(homeDir, ".local", "bin", "t3");
+      const unrelatedFile = path.join(homeDir, "keep-me.txt");
+
+      for (const file of [userdataFile, cacheFile, configFile, desktopShim, unrelatedFile]) {
+        yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+      }
+      yield* fs.writeFileString(userdataFile, "sqlite");
+      yield* fs.writeFileString(cacheFile, "cache");
+      yield* fs.writeFileString(configFile, "{}");
+      yield* fs.writeFileString(
+        desktopShim,
+        "#!/bin/sh\n# Written by M3 Code: runs the desktop app's bundled t3 CLI.\n",
+      );
+      yield* fs.writeFileString(unrelatedFile, "untouched");
+
+      const uninstalls: Array<true> = [];
+      vi.spyOn(BootService, "layer").mockReturnValue(
+        Layer.succeed(
+          BootService.BootService,
+          BootService.BootService.of({
+            status: Effect.succeed({
+              supported: true,
+              installed: true,
+              current: true,
+              installedBaseDir: baseDir,
+              unitPath: path.join(homeDir, ".config/systemd/user/m3code.service"),
+              logPath: path.join(baseDir, "userdata/logs/boot-service.log"),
+            }),
+            withStopped: (operation) => operation,
+            restart: Effect.die("unexpected restart"),
+            install: () => Effect.die("unexpected install"),
+            uninstall: Effect.sync(() => {
+              uninstalls.push(true);
+              return true;
+            }),
+          }),
+        ),
+      );
+
+      const output = yield* Command.runWith(uninstallCommand, { version: packageJson.version })([
+        "--base-dir",
+        baseDir,
+        "--all",
+        "--yes",
+      ]).pipe(
+        Effect.andThen(TestConsole.logLines),
+        Effect.map((lines) => lines.join("\n")),
+        Effect.provideService(HostProcess.Platform, "linux"),
+        Effect.provideService(HostProcess.HomeDirectory, homeDir),
+        Effect.provideService(HostProcess.Environment, {}),
+        Effect.provideService(HostProcess.IsExecutable, false),
+        Effect.provide(
+          Layer.mergeAll(
+            ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })),
+            Layer.fresh(TestConsole.layer),
+          ),
+        ),
+      );
+
+      assert.deepStrictEqual(uninstalls, [true]);
+      assert.isFalse(yield* fs.exists(baseDir));
+      assert.isFalse(yield* fs.exists(path.join(homeDir, ".cache", "m3code")));
+      assert.isFalse(yield* fs.exists(path.join(homeDir, ".config", "t3code-v2")));
+      assert.isFalse(yield* fs.exists(desktopShim));
+      assert.isTrue(yield* fs.exists(unrelatedFile));
+      assert.include(output, "M3 Code has been completely uninstalled.");
+    }),
+  );
 });
 
 it.layer(NodeServices.layer)("t3 uninstall launcher", (it) => {

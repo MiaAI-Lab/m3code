@@ -357,6 +357,17 @@ export const DesktopCliCommandStateSchema = Schema.Struct({
 });
 export type DesktopCliCommandState = typeof DesktopCliCommandStateSchema.Type;
 
+export const DesktopUninstallPlanSchema = Schema.Struct({
+  supported: Schema.Boolean,
+  isPackaged: Schema.Boolean,
+  appBundlePath: Schema.NullOr(Schema.String),
+  baseDir: Schema.String,
+  paths: Schema.Array(Schema.String),
+  hasBackgroundService: Schema.Boolean,
+  cliCommandPath: Schema.NullOr(Schema.String),
+});
+export type DesktopUninstallPlan = typeof DesktopUninstallPlanSchema.Type;
+
 export interface DesktopUpdateActionResult {
   accepted: boolean;
   completed: boolean;
@@ -1232,6 +1243,10 @@ export interface DesktopBridge {
     install: () => Promise<DesktopCliCommandState>;
     uninstall: () => Promise<DesktopCliCommandState>;
     addToPath: () => Promise<DesktopCliCommandState>;
+  };
+  uninstall?: {
+    getPlan: () => Promise<DesktopUninstallPlan>;
+    run: () => Promise<void>;
   };
   webLinks: {
     setReady: (ready: boolean) => Promise<void>;

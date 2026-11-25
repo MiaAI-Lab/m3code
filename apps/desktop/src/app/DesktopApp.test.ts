@@ -52,6 +52,7 @@ import * as DesktopWslBackend from "../wsl/DesktopWslBackend.ts";
 import * as BrowserImport from "../preview/BrowserImport/BrowserImport.ts";
 import * as DesktopBackendConfiguration from "../backend/DesktopBackendConfiguration.ts";
 import * as DesktopCliCommand from "./DesktopCliCommand.ts";
+import * as DesktopUninstall from "./DesktopUninstall.ts";
 import * as DesktopCliShim from "./DesktopCliShim.ts";
 import * as DesktopClientSettings from "../settings/DesktopClientSettings.ts";
 import * as DesktopConnectionCatalogStore from "./DesktopConnectionCatalogStore.ts";
@@ -230,6 +231,7 @@ const runStubbedDesktop = (stub: StubbedDesktop) =>
           Layer.mock(MacPermissions.MacPermissions, {}),
           Layer.mock(AppleSpeech.AppleSpeech, {}),
           Layer.mock(LoopbackTunnel.LoopbackTunnel, {}),
+          Layer.mock(DesktopUninstall.DesktopUninstall, {}),
           Layer.mock(PreviewManager.PreviewManager, {
             isBrowserPartition: () => {
               throw new Error("unexpected browser partition lookup");
