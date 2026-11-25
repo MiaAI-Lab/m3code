@@ -4,6 +4,16 @@
   "rules": { "types": "off", "nsTypes": "off" },
   // These executables are supplied by the OS or installed separately from npm.
   "ignoreBinaries": ["eas", "file", "mkfifo", "pkill", "pkg-config", "plutil", "sips"],
+  // Fork: exports whose only callers this fork removed (agent feedback, Clerk sign-in, the
+  // uninstall flows) or that only this file uses. They stay exported so upstream merges into
+  // these files keep applying cleanly.
+  "ignoreIssues": {
+    "apps/desktop/src/app/DesktopUninstall.ts": ["exports"],
+    "apps/server/src/cli/uninstall.ts": ["exports"],
+    "apps/server/src/serverSettings.ts": ["exports"],
+    "packages/shared/src/socketE2ee.ts": ["exports"],
+    "packages/source-control-github/src/server/GitHubAppSignIn.ts": ["exports"],
+  },
   "workspaces": {
     ".": {
       // Keep vendored reference repositories outside the root project.
@@ -19,7 +29,9 @@
     },
     "evals": {
       // The grader loads these answers by path, as the server loads a definitions file.
-      "entry": ["workflow-authoring/fixtures/*.ts"],
+      // capture-local.ts runs this MCP stub by path, as the harness under capture spawns it.
+      // Keep a single "evals" key: a second one silently replaces this one.
+      "entry": ["workflow-authoring/fixtures/*.ts", "mcp-tool-use/mcp-stub.ts"],
     },
     "scripts": {
       // Knip loads its preprocessor through a CLI option; native verification and
@@ -158,10 +170,6 @@
     "infra/relay": {
       // Alchemy loads src/worker.ts as the Worker entry and reads its default export.
       "entry": ["alchemy.run.ts!", "src/persistence/schema.ts!", "src/worker.ts!"],
-    },
-    "evals": {
-      // capture-local.ts runs this MCP stub by path, as the harness under capture spawns it.
-      "entry": ["mcp-tool-use/mcp-stub.ts"],
     },
     "packages/*": {
       // These workspace packages are private to this monorepo.
