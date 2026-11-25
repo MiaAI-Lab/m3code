@@ -2328,7 +2328,10 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     options?: { readonly allowRemoteOfCurrent?: boolean },
     trace?: { dependsOnRemoteOfCurrent: boolean; degraded: boolean },
   ) {
-    const configuredBaseRef = yield* readConfigValue(cwd, `branch.${refName}.t3-merge-base-ref`);
+    const [configuredBaseRef, configuredBaseBranchValue] = yield* Effect.all(
+      [readConfigValue(cwd, `branch.${refName}.t3-merge-base-ref`), readBranchBase(cwd, refName)],
+      { concurrency: 2 },
+    );
     if (
       configuredBaseRef?.startsWith("refs/heads/") ||
       configuredBaseRef?.startsWith("refs/remotes/")
@@ -2343,7 +2346,7 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
       }
     }
 
-    const configuredBaseBranch = (yield* readBranchBase(cwd, refName)) ?? "";
+    const configuredBaseBranch = configuredBaseBranchValue ?? "";
     const configuredBase = yield* resolveComparisonBaseRef(cwd, configuredBaseBranch);
     if (
       configuredBase !== null &&
@@ -2753,20 +2756,6 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     options?: GitVcsDriver.GitLocalStatusOptions,
   ) {
     const includeDivergence = options?.includeDivergence !== false;
-    // Hidden untracked files could not be committed; `all` stays as configured.
-    const untrackedFilesHidden = untrackedFilesHiddenByConfig(
-      yield* readConfigValue(cwd, "status.showUntrackedFiles").pipe(
-        Effect.orElseSucceed(() => null),
-      ),
-    );
-    const statusArgs = [
-      "status",
-      "--porcelain=2",
-      "--branch",
-      "-z",
-      ...(untrackedFilesHidden ? ["--untracked-files=normal"] : []),
-      ...(includeDivergence ? [] : ["--no-ahead-behind"]),
-    ];
     const readPaths = (...args: string[]) =>
       executeGitWithStableDiagnostics(
         "GitVcsDriver.statusDetails.indexPath",
@@ -2779,13 +2768,30 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
             isMissingGitCwdError(error) ? Effect.succeed(null) : Effect.fail(error),
         }),
       );
-    const paths = yield* readPaths(
-      "--path-format=absolute",
-      "--git-path",
-      "index",
-      "--git-common-dir",
-      "--show-toplevel",
+    // Run the untracked-files config lookup in parallel with rev-parse to save a subprocess round-trip.
+    const [untrackedFilesConfig, paths] = yield* Effect.all(
+      [
+        readConfigValue(cwd, "status.showUntrackedFiles").pipe(Effect.orElseSucceed(() => null)),
+        readPaths(
+          "--path-format=absolute",
+          "--git-path",
+          "index",
+          "--git-common-dir",
+          "--show-toplevel",
+        ),
+      ],
+      { concurrency: 2 },
     );
+    // Hidden untracked files could not be committed; `all` stays as configured.
+    const untrackedFilesHidden = untrackedFilesHiddenByConfig(untrackedFilesConfig);
+    const statusArgs = [
+      "status",
+      "--porcelain=2",
+      "--branch",
+      "-z",
+      ...(untrackedFilesHidden ? ["--untracked-files=normal"] : []),
+      ...(includeDivergence ? [] : ["--no-ahead-behind"]),
+    ];
     if (paths === null || (paths.exitCode !== 0 && isNonRepositoryGitStderr(paths.stderr))) {
       return NON_REPOSITORY_STATUS_DETAILS;
     }
@@ -5315,8 +5321,14 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
   const readBranchBase: GitVcsDriver.GitVcsDriver["Service"]["readBranchBase"] = Effect.fn(
     "GitVcsDriver.readBranchBase",
   )(function* (cwd, branch) {
-    const base = yield* readConfigValue(cwd, branchBaseConfigKey(branch));
-    return base ?? (yield* readConfigValue(cwd, legacyBranchBaseConfigKey(branch)));
+    const [base, legacyBase] = yield* Effect.all(
+      [
+        readConfigValue(cwd, branchBaseConfigKey(branch)),
+        readConfigValue(cwd, legacyBranchBaseConfigKey(branch)),
+      ],
+      { concurrency: 2 },
+    );
+    return base ?? legacyBase;
   });
 
   const resolveBranchBase = Effect.fn("GitVcsDriver.resolveBranchBase")(function* (

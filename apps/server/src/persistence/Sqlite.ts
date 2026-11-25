@@ -69,29 +69,27 @@ const makeLayerSetup = <E, R>(migrate: Effect.Effect<unknown, E, R>) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
       // CLI and server write from separate processes; wait rather than fail with SQLITE_BUSY.
-      yield* sql`PRAGMA busy_timeout = 5000;`;
-      yield* sql`PRAGMA foreign_keys = ON;`;
+      yield* sql.unsafe("PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;");
       // Existing databases need doctor's offline VACUUM to add pointer maps for this mode.
       const tables = yield* sql<{
         readonly count: number;
       }>`SELECT COUNT(*) AS count FROM sqlite_schema WHERE type = 'table'`;
       if (tables[0]?.count === 0) yield* sql`PRAGMA auto_vacuum = INCREMENTAL;`;
-      yield* sql`PRAGMA journal_mode = WAL;`;
-      // FULL fsyncs every event commit; NORMAL syncs only at WAL checkpoints.
-      // App crashes lose nothing; OS crashes or power loss can roll back post-checkpoint commits without corruption.
-      yield* sql`PRAGMA synchronous = NORMAL;`;
-      // macOS fsync misses drive caches; F_FULLFSYNC flushes them at checkpoints and is ignored elsewhere.
-      yield* sql`PRAGMA checkpoint_fullfsync = ON;`;
-      // Keep statement journals and sort spills off the disk.
-      // Large statements and open savepoints can increase peak memory use.
-      yield* sql`PRAGMA temp_store = MEMORY;`;
-      // Give SQLite a 64 MiB page cache and 256 MiB memory-mapped I/O window
-      // (SQLite defaults to ~2 MiB cache and 0 mmap) to eliminate repeated pread syscalls
-      // on Apple Silicon unified memory during thread switches and search.
-      yield* sql`PRAGMA cache_size = -64000;`;
-      yield* sql`PRAGMA mmap_size = 268435456;`;
-      // PASSIVE checkpoints retain peak WAL size until the last connection closes.
-      yield* sql.unsafe(`PRAGMA journal_size_limit = ${WAL_SIZE_LIMIT_BYTES};`);
+      // Batch WAL, durability, memory, and mmap PRAGMAs in one worker round-trip:
+      // - NORMAL syncs only at WAL checkpoints (F_FULLFSYNC flushes macOS drive caches).
+      // - 64 MiB page cache + 256 MiB mmap eliminates repeated pread syscalls on unified memory.
+      // - PASSIVE checkpoints retain peak WAL size until the last connection closes.
+      yield* sql.unsafe(
+        [
+          "PRAGMA journal_mode = WAL;",
+          "PRAGMA synchronous = NORMAL;",
+          "PRAGMA checkpoint_fullfsync = ON;",
+          "PRAGMA temp_store = MEMORY;",
+          "PRAGMA cache_size = -64000;",
+          "PRAGMA mmap_size = 268435456;",
+          `PRAGMA journal_size_limit = ${WAL_SIZE_LIMIT_BYTES};`,
+        ].join(" "),
+      );
       yield* migrate;
       // Collecting stats scans every page, and stale small-table stats cause scans after growth; use indexes by default.
       // Connections cache stats; reload after deleting them.
