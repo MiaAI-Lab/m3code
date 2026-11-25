@@ -9,8 +9,6 @@ apps/server/src/inference/InferenceAdmission.test.ts
 apps/server/src/inference/InferenceAdmission.ts
 apps/server/src/inference/InferenceDiagnostics.test.ts
 apps/server/src/inference/InferenceDiagnostics.ts
-apps/server/src/inference/InferenceDiscovery.test.ts
-apps/server/src/inference/InferenceDiscovery.ts
 apps/server/src/inference/InferenceGateway.test.ts
 apps/server/src/inference/InferenceGateway.ts
 apps/server/src/inference/InferenceGatewayAccess.test.ts
@@ -63,7 +61,6 @@ apps/web/src/routes/_chat.settings.inference.tsx
 apps/web/src/state/inference.ts
 docs/local-model-improvement-plan.md
 docs/user/encrypted-remote-control.md
-docs/user/local-models.md
 docs/user/network-calls.md
 docs/user/providers-noname.md
 evals/local-coding/README.md
