@@ -2259,6 +2259,71 @@
   "8fffd1cf07b7fbc6": "Configuration des raccourcis clavier non valide",
   "9e4394e5b89e57a1": "Restauration de vos fils…",
   "5579a5d039c6962c": "{count, plural, one {Migration de {total} fil depuis la version précédente. Vous pouvez continuer à travailler en attendant.} other {Migration de {total} fils depuis la version précédente. Vous pouvez continuer à travailler en attendant.}}",
+  "f3f037069970a30b": "Install failed",
+  "6d3cb458522ca1ff": "Plugins reloaded",
+  "eea0c6c5371e3293": "Local path, git URL, or github:owner/repo",
+  "94289a28173e294d": "Désactiver",
+  "2c291721a16e936d": "Activer",
+  "9b82b2b99c73e267": "M3 Plugins",
+  "a37646f7c2504a45": "M3 Plugins",
+  "bb8fff52ca52ac6b": [
+    "User-space plugins loaded from",
+    " ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    }
+  ],
+  "c8e5d8e9e51be6fb": "Recharger",
+  "f53cc2278f5d8808": "Symlink",
+  "b848773fd942cc02": "Install",
+  "9c116592a06f4bf9": [
+    "Drop a folder with ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": "plugin.json"
+    },
+    " into",
+    " ",
+    {
+      "t": "code",
+      "i": 2,
+      "c": {
+        "i": 3,
+        "k": "_gt_value_3",
+        "v": "v"
+      }
+    },
+    " ",
+    "or install one above."
+  ],
+  "b20ec7ee33222e70": [
+    "Slots: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "1439e3a619d653ba": [
+    "Events: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "66213fda21f8d13a": "Panel",
+  "58d8223cc47e7b06": "Tab",
+  "0dbf12855bc3c194": "Modal",
+  "111a44209dc6e701": "Supprimer",
+  "ebf33274ee2bbd52": "Plugins",
   "8117d2b1eaef9f82": [
     "Cet environnement est géré par ",
     {
@@ -6300,7 +6365,6 @@
   "6ed1357c34d130ae": "Vérifier que le serveur de dev est lancé",
   "8dde65fb15633837": "L’ouvrir dans le navigateur de l’environnement, qui a accès à son réseau",
   "a7cc5ea7388fc0bd": "Vérifier le proxy et le pare-feu",
-  "c8e5d8e9e51be6fb": "Recharger",
   "b54cf7575b169cc2": "Profil supprimé",
   "47c47bbab985e718": "Impossible d’ouvrir cette adresse",
   "f0287e8bebecf7c2": "Saisissez une URL http ou https.",
@@ -7521,7 +7585,6 @@
   "f8d29f698314bb6e": "Création…",
   "647bd066558e1add": "Par défaut",
   "84dc0da709ddecd1": "Configurer",
-  "94289a28173e294d": "Désactiver",
   "568aae4a722512f5": "Portées accordées",
   "95e792b0c8b0121a": "Créez un nouveau lien à partager depuis ce client.",
   "c70997735272aa6c": "Copiez le jeton et appairez-vous depuis un autre client avec l’hôte joignable de ce backend.",
@@ -8097,7 +8160,6 @@
   "d9b97f4f5da2517e": "Désactiver WSL",
   "68916f6f608ece80": "Changer de distribution",
   "afd31786b2fd29f0": "Point de terminaison MagicDNS en attente",
-  "2c291721a16e936d": "Activer",
   "d087da5017f20fa2": "Aucun environnement sélectionné",
   "cb553d31c9d1b1c7": "Connectez un environnement pour voir ses paramètres et ses accès.",
   "9a84dc0e80037e05": "Cette app",
@@ -9250,7 +9312,6 @@
   "e749b8ba2ff18f8f": "Ajouter {name} au projet",
   "6d08f0285e2bbf34": "Ajouter un dossier",
   "b7820a37d8ff1918": "Les dépôts situés dans ce dossier font partie du projet dès qu’ils s’y trouvent. Ajoutez un dossier pour en intégrer un situé ailleurs.",
-  "111a44209dc6e701": "Supprimer",
   "daafb41c2b3c066f": "Dans le fichier d’espace de travail",
   "2c5c798252f91fdc": "Ajouter",
   "7e4d1ce9725c2327": "Suivez un dépôt ou un dossier situé n’importe où sur la machine de ce projet.",
