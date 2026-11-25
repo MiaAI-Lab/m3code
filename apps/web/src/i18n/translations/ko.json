@@ -3213,10 +3213,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "(이 페이지를 연 컴퓨터)"
-      ],
+      "c": [" ", "(이 페이지를 연 컴퓨터)"],
       "i": 2,
       "t": "span"
     }
@@ -3228,10 +3225,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "· 실행하는 사람이 이 액세스 권한을 얻습니다"
-      ],
+      "c": [" ", "· 실행하는 사람이 이 액세스 권한을 얻습니다"],
       "i": 2,
       "t": "span"
     }
@@ -8825,6 +8819,223 @@
   "8c0303c36a69ecc0": "부하 자동 분산",
   "ebfef435bd266c26": "{environment} 부하 기본 설정",
   "a49a651079f9664d": "공유 프로젝트의 새 스레드는 각 머신의 기본 설정을 반영해 CPU와 메모리 여유가 가장 많은 머신에서 시작됩니다.",
+  "65583c3b32a93a9e": "Failed to inspect local model engines.",
+  "6b5e2355364f831c": "Failed to {action} {kind}.",
+  "000e19d19ac6f200": "Failed to update {kind}.",
+  "e6a47013c2425cf5": "Local Model Engines",
+  "f54bc09b5dc96294": "Scanning local model engines...",
+  "3108df75475915d1": "No local engine data yet.",
+  "92d6d17e58f3f78d": "Click Refresh to detect Ollama, llama.cpp, MLX, LM Studio, vLLM, SGLang, and Omega on this environment.",
+  "df57f5d3b1559847": "Active: {models}",
+  "689ad2902edaa2d5": "Default model: {model}",
+  "3bdcf1ac3a0e8d1c": "{size}K ctx",
+  "0614bc2028f6a41c": "Restart engine",
+  "cb966de39f2be957": "Stop engine",
+  "d161ecd0ed0b1e1e": "Start engine",
+  "5e166b73d79fe441": "Check & run engine update",
+  "30b70c7e7ad25c40": "View engine logs",
+  "e89ab461ecc296d6": "Saved launch options for {engine}.",
+  "a9b9b55c67d6438f": "Failed to save engine options.",
+  "767059cd4e059d59": "Failed to {action} {model}.",
+  "9e23328b79e8e18f": "Set {model} as default launch model for {engine}.",
+  "2c58601df9809326": "No log lines captured yet.",
+  "3bdb2f17d1d4deeb": "/path/to/model.gguf or bartowski/Qwen3-32B-GGUF",
+  "5ee558043111bba1": "e.g. 32768 or 131072",
+  "a2e1c8ad44830ad3": "e.g. --cache-reuse 256 --jinja",
+  "184e31b5fd358143": "Pull model tag (e.g. qwen3:32b, llama3.3:latest)",
+  "35a66381035e2e9e": "Download model key",
+  "d10e631838c3e7d4": "Delete model",
+  "a9827dbd12d19bc8": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " cores"
+  ],
+  "be0c9d5527c26f32": [
+    "Unified Memory:",
+    " ",
+    {
+      "t": "strong",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    " ",
+    "/ ",
+    {
+      "i": 3,
+      "k": "_gt_value_3",
+      "v": "v"
+    },
+    " (",
+    {
+      "i": 4,
+      "k": "_gt_value_4",
+      "v": "v"
+    },
+    " free)"
+  ],
+  "a49756e8f6cf1810": [
+    "RAM:",
+    " ",
+    {
+      "t": "strong",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    " ",
+    "/ ",
+    {
+      "i": 3,
+      "k": "_gt_value_3",
+      "v": "v"
+    }
+  ],
+  "d734cdde78cd0341": [
+    "VRAM:",
+    " ",
+    {
+      "t": "strong",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    " ",
+    "/ ",
+    {
+      "i": 3,
+      "k": "_gt_value_3",
+      "v": "v"
+    }
+  ],
+  "f29de100aecdec0f": "Scanning",
+  "622a159ad0eabdcb": "Running",
+  "5c174688fdb31c00": "Installed",
+  "a9a80d7e4fb398b9": "Not installed",
+  "f2ce1fd16586de2b": "Gateway linked",
+  "15af57a52402873e": [
+    "Install: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "bd90fd96c98e9c6f": "Restart",
+  "0be6b2546df12f66": "중지",
+  "7a4e5e17bc86fd03": "Start",
+  "8282df987bfae07c": [
+    "Models (",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ")"
+  ],
+  "7e1628e78b2e4870": "Options",
+  "6b1da89bf7daab6e": "Update",
+  "7f41545dc72a20ff": "Logs",
+  "42856d396ac50618": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " Logs"
+  ],
+  "ad14ed074dc49937": "Recent stdout/stderr from the M3 Code managed engine process.",
+  "1695fc04b8075a5f": "Refresh logs",
+  "f105a41118cba148": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " Launch Options"
+  ],
+  "0ec6b3ee8681e135": "Configure port, model, context window, KV cache quantization, and CLI flags.",
+  "f4f327b685db6256": "Default model (path, Hugging Face repo, or tag)",
+  "33c90c2138d8a6ee": "Context length (tokens)",
+  "7235bfee4e478012": "GPU layers",
+  "b3b9b28c4457529d": "KV cache",
+  "a4f43ec3d6dbdef6": "자동",
+  "144ee0e93b2d81af": "Parallel slots",
+  "0fc39f2ca446f5a8": "Extra CLI arguments",
+  "2a811ff55e61ecd1": "Flash Attention",
+  "b89327be53a198f4": "Enable Flash Attention when supported by this engine.",
+  "c9ff965031f7e60f": "Auto-register in Inference Servers",
+  "3a0474b38b2892c6": "Automatically link this engine to M3 Code's gateway when started.",
+  "a7c768b18f39f696": "Save & Restart",
+  "93f99b82c2a5acf9": "Save & Start",
+  "0110e2d990c04ab1": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " Models"
+  ],
+  "ee2900592fe15466": {
+    "t": "Plural",
+    "i": 1,
+    "d": {
+      "b": {
+        "one": {
+          "t": "C2",
+          "i": 2,
+          "c": [
+            {
+              "i": 3,
+              "k": "_gt_value_3",
+              "v": "v"
+            },
+            " local model detected."
+          ]
+        },
+        "other": {
+          "t": "C2",
+          "i": 2,
+          "c": [
+            {
+              "i": 3,
+              "k": "_gt_value_3",
+              "v": "v"
+            },
+            " local models detected."
+          ]
+        }
+      },
+      "t": "p"
+    }
+  },
+  "87500b708e90119d": "Pulling...",
+  "2e424bf0d0b332e1": "Pull",
+  "6c2fd5456a4d1897": [
+    "No local models found yet for ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
+  "d1dc077697c6c2bb": "Loaded",
+  "4aaacdfe6e62448d": "Unload",
+  "b4d66bc37d4ef86d": "Load",
+  "c26dd73115809851": "Use on start",
   "da16b9e4be45ae09": "이 설정을 변경할 수 없습니다.",
   "445d9775e2fe95c6": "Run agents on this computer. Turn off to use M3 Code only with remote environments.",
   "e1391d08740f38f0": "꺼져 있습니다. 에이전트는 원격 환경에서만 실행됩니다.",
@@ -8856,7 +9067,6 @@
   "74e7837237a78a93": "녹음 일시 중지",
   "88838a688670154d": "녹음 재생",
   "9aa5deeebe227be6": "녹음 재생 위치",
-  "0be6b2546df12f66": "중지",
   "7dbd7e8943e8931f": "마이크 여는 중…",
   "efa31f38b611e912": "이 녹음을 재생할 수 없습니다. 다시 녹음해 보세요.",
   "0cebac0a2a6bdc99": "iPhone 및 iPad",
@@ -11462,7 +11672,6 @@
   "f4c5cba0cd5dbb68": "모델 사용",
   "38b344bfa7d50343": "별칭",
   "c893707203cb6aee": "먼저 환경을 연결하세요.",
-  "a4f43ec3d6dbdef6": "자동",
   "dc4980666a27677e": "모든 언어",
   "111dbc8f88feacff": "일치하는 언어가 없습니다.",
   "003aa9115365f752": "정렬 기준",

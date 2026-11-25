@@ -138,6 +138,7 @@ import * as InferenceGateway from "./inference/InferenceGateway.ts";
 import * as InferenceRouting from "./inference/InferenceRouting.ts";
 import * as InferenceGatewayAccess from "./inference/InferenceGatewayAccess.ts";
 import * as InferenceDiscovery from "./inference/InferenceDiscovery.ts";
+import * as LocalEngineManager from "./inference/LocalEngineManager.ts";
 import * as InferenceImageChecks from "./inference/InferenceImageChecks.ts";
 import * as InferenceImageVerdicts from "./inference/InferenceImageVerdicts.ts";
 import * as InferenceStops from "./inference/InferenceStops.ts";
@@ -847,7 +848,7 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
     ),
     // Below provider hydration: Pi instances reach a linked server through the gateway from here.
     Layer.provideMerge(
-      InferenceGatewayAccess.layer.pipe(
+      Layer.mergeAll(InferenceGatewayAccess.layer, LocalEngineManager.layer).pipe(
         Layer.provideMerge(InferenceServerRegistry.layer),
         Layer.provideMerge(InferenceImageVerdicts.layer),
       ),

@@ -41,6 +41,7 @@ import { RefreshIcon } from "../ui/refresh-icon";
 import { Switch } from "../ui/switch";
 import { InferenceServerDialog } from "./InferenceServerDialog";
 import { FindInferenceServerDialog } from "./FindInferenceServerDialog";
+import { LocalEnginesSection } from "./LocalEnginesSection";
 import { knownServerModelIds } from "./localModelSetup.logic";
 import { UseLocalModelDialog } from "./UseLocalModelDialog";
 import {
@@ -233,6 +234,7 @@ function EnvironmentInferenceServers({
 
   return (
     <>
+      <LocalEnginesSection environmentId={environmentId} readOnly={readOnly} />
       <SettingsSection
         {...searchableSetting("inference-servers")}
         headerAction={

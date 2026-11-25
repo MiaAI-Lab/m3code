@@ -159,6 +159,7 @@ import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts"
 import * as ThreadSearch from "./orchestration-v2/ThreadSearch.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as InferenceDiscovery from "./inference/InferenceDiscovery.ts";
+import * as LocalEngineManager from "./inference/LocalEngineManager.ts";
 import * as InferenceImageChecks from "./inference/InferenceImageChecks.ts";
 import * as InferenceStops from "./inference/InferenceStops.ts";
 import * as InferenceServerRegistry from "./inference/InferenceServerRegistry.ts";
@@ -867,6 +868,7 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
     InferenceDiscovery.InferenceDiscovery,
     InferenceDiscovery.InferenceDiscovery.of({ discover: () => Effect.die("unused") }),
   ),
+  Layer.mock(LocalEngineManager.LocalEngineManager)({}),
   Layer.succeed(
     InferenceImageChecks.InferenceImageChecks,
     InferenceImageChecks.InferenceImageChecks.of({ check: () => Effect.die("unused") }),
@@ -1129,6 +1131,7 @@ it.effect.each([
         Layer.mock(InferenceStops.InferenceStops)({}),
         Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
         Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+        Layer.mock(LocalEngineManager.LocalEngineManager)({}),
         Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({
           current: Effect.succeed([]),
           streamChanges: Stream.make([]),
@@ -1550,6 +1553,7 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
       Layer.mock(InferenceStops.InferenceStops)({}),
       Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
       Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+      Layer.mock(LocalEngineManager.LocalEngineManager)({}),
       Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({
         current: Effect.succeed([]),
         streamChanges: Stream.concat(Stream.make([]), Stream.fromQueue(inferenceChanges)),
@@ -2307,6 +2311,7 @@ it.effect("a publish whose push fails still refreshes the new remote", () =>
       Layer.mock(InferenceStops.InferenceStops)({}),
       Layer.mock(InferenceImageChecks.InferenceImageChecks)({}),
       Layer.mock(InferenceDiscovery.InferenceDiscovery)({}),
+      Layer.mock(LocalEngineManager.LocalEngineManager)({}),
       Layer.mock(InferenceServerRegistry.InferenceServerRegistry)({}),
       Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({}),
       Layer.mock(DirectEndpoints.DirectEndpoints)({}),

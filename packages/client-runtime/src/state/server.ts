@@ -1864,6 +1864,56 @@ export function createServerEnvironmentAtoms<R, E>(
           JSON.stringify([environmentId, input.serverId, input.model]),
       },
     }),
+    listLocalEngines: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:local-engines:list",
+      tag: WS_METHODS.localEnginesList,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => JSON.stringify([environmentId, input.fresh ?? false]),
+      },
+    }),
+    controlLocalEngine: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:local-engines:control",
+      tag: WS_METHODS.localEnginesControl,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) =>
+          JSON.stringify([environmentId, input.kind, input.action]),
+      },
+    }),
+    updateLocalEngine: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:local-engines:update",
+      tag: WS_METHODS.localEnginesUpdate,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => JSON.stringify([environmentId, input.kind]),
+      },
+    }),
+    manageLocalEngineModel: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:local-engines:manage-model",
+      tag: WS_METHODS.localEnginesManageModel,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) =>
+          JSON.stringify([environmentId, input.kind, input.action, input.model]),
+      },
+    }),
+    saveLocalEngineConfig: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:local-engines:save-config",
+      tag: WS_METHODS.localEnginesSaveConfig,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => JSON.stringify([environmentId, input.kind]),
+      },
+    }),
+    getLocalEngineLogs: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:local-engines:get-logs",
+      tag: WS_METHODS.localEnginesGetLogs,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => JSON.stringify([environmentId, input.kind]),
+      },
+    }),
     getThreadInferenceStop: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:thread-inference-stop",
       tag: WS_METHODS.serverGetThreadInferenceStop,

@@ -301,6 +301,7 @@ import * as AgentSessionScanner from "./project/AgentSessionScanner.ts";
 import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as InferenceDiscovery from "./inference/InferenceDiscovery.ts";
+import * as LocalEngineManager from "./inference/LocalEngineManager.ts";
 import * as InferenceImageChecks from "./inference/InferenceImageChecks.ts";
 import * as InferenceStops from "./inference/InferenceStops.ts";
 import * as InferenceServerRegistry from "./inference/InferenceServerRegistry.ts";
@@ -1462,6 +1463,7 @@ export const layerWsRpc = (
       const usageLimitSources = yield* UsageLimitSources.UsageLimitSources;
       const inferenceServers = yield* InferenceServerRegistry.InferenceServerRegistry;
       const inferenceDiscovery = yield* InferenceDiscovery.InferenceDiscovery;
+      const localEngineManager = yield* LocalEngineManager.LocalEngineManager;
       const inferenceStops = yield* InferenceStops.InferenceStops;
       const inferenceImageChecks = yield* InferenceImageChecks.InferenceImageChecks;
       const inferenceRequests = yield* InferenceRequests.InferenceRequestLog;
@@ -2499,6 +2501,12 @@ export const layerWsRpc = (
         [WS_METHODS.serverGetThreadInferenceStop]: (input) =>
           inferenceStops.latest(input.threadId).pipe(Effect.map((stop) => ({ stop }))),
         [WS_METHODS.serverCheckInferenceModelImages]: (input) => inferenceImageChecks.check(input),
+        [WS_METHODS.localEnginesList]: (input) => localEngineManager.list(input),
+        [WS_METHODS.localEnginesControl]: (input) => localEngineManager.control(input),
+        [WS_METHODS.localEnginesUpdate]: (input) => localEngineManager.update(input),
+        [WS_METHODS.localEnginesManageModel]: (input) => localEngineManager.manageModel(input),
+        [WS_METHODS.localEnginesSaveConfig]: (input) => localEngineManager.saveConfig(input),
+        [WS_METHODS.localEnginesGetLogs]: (input) => localEngineManager.getLogs(input),
         [WS_METHODS.serverRefreshProviders]:
           /* Request instrumentation already owns the span; keep this helper in that context. */
           Effect.fnUntraced(function* (input) {

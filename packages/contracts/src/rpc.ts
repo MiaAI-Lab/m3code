@@ -11,6 +11,21 @@ import {
   InferenceUsageWindow,
 } from "./inference.ts";
 import {
+  LocalEngineControlInput,
+  LocalEngineControlResult,
+  LocalEngineError,
+  LocalEngineGetLogsInput,
+  LocalEngineGetLogsResult,
+  LocalEngineManageModelInput,
+  LocalEngineManageModelResult,
+  LocalEngineSaveConfigInput,
+  LocalEngineSaveConfigResult,
+  LocalEnginesListInput,
+  LocalEnginesListResult,
+  LocalEngineUpdateInput,
+  LocalEngineUpdateResult,
+} from "./localEngines.ts";
+import {
   OrchestrationV2SearchThreadError,
   OrchestrationV2SearchThreadInput,
   OrchestrationV2SearchThreadResult,
@@ -599,6 +614,12 @@ export const WS_METHODS = {
   serverGetThreadInferenceRequest: "server.getThreadInferenceRequest",
   serverGetThreadInferenceStop: "server.getThreadInferenceStop",
   serverCheckInferenceModelImages: "server.checkInferenceModelImages",
+  localEnginesList: "localEngines.list",
+  localEnginesControl: "localEngines.control",
+  localEnginesUpdate: "localEngines.update",
+  localEnginesManageModel: "localEngines.manageModel",
+  localEnginesSaveConfig: "localEngines.saveConfig",
+  localEnginesGetLogs: "localEngines.getLogs",
   serverUpdateProvider: "server.updateProvider",
   serverUpdateServer: "server.updateServer",
   serverUpdateServerWithProgress: "server.updateServerWithProgress",
@@ -811,6 +832,42 @@ const WsServerDiscoverInferenceServersRpc = Rpc.make(WS_METHODS.serverDiscoverIn
   payload: InferenceDiscoveryInput,
   success: InferenceDiscoveryResult,
   error: Schema.Union([EnvironmentAuthorizationError]),
+});
+
+const WsLocalEnginesListRpc = Rpc.make(WS_METHODS.localEnginesList, {
+  payload: LocalEnginesListInput,
+  success: LocalEnginesListResult,
+  error: Schema.Union([LocalEngineError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalEnginesControlRpc = Rpc.make(WS_METHODS.localEnginesControl, {
+  payload: LocalEngineControlInput,
+  success: LocalEngineControlResult,
+  error: Schema.Union([LocalEngineError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalEnginesUpdateRpc = Rpc.make(WS_METHODS.localEnginesUpdate, {
+  payload: LocalEngineUpdateInput,
+  success: LocalEngineUpdateResult,
+  error: Schema.Union([LocalEngineError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalEnginesManageModelRpc = Rpc.make(WS_METHODS.localEnginesManageModel, {
+  payload: LocalEngineManageModelInput,
+  success: LocalEngineManageModelResult,
+  error: Schema.Union([LocalEngineError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalEnginesSaveConfigRpc = Rpc.make(WS_METHODS.localEnginesSaveConfig, {
+  payload: LocalEngineSaveConfigInput,
+  success: LocalEngineSaveConfigResult,
+  error: Schema.Union([LocalEngineError, EnvironmentAuthorizationError]),
+});
+
+const WsLocalEnginesGetLogsRpc = Rpc.make(WS_METHODS.localEnginesGetLogs, {
+  payload: LocalEngineGetLogsInput,
+  success: LocalEngineGetLogsResult,
+  error: Schema.Union([LocalEngineError, EnvironmentAuthorizationError]),
 });
 
 export const WsServerRefreshProvidersRpc = Rpc.make(WS_METHODS.serverRefreshProviders, {
@@ -2517,6 +2574,12 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetThreadInferenceRequestRpc,
   WsServerGetThreadInferenceStopRpc,
   WsServerCheckInferenceModelImagesRpc,
+  WsLocalEnginesListRpc,
+  WsLocalEnginesControlRpc,
+  WsLocalEnginesUpdateRpc,
+  WsLocalEnginesManageModelRpc,
+  WsLocalEnginesSaveConfigRpc,
+  WsLocalEnginesGetLogsRpc,
   WsServerUpdateProviderRpc,
   WsProviderConsumeResetCreditRpc,
   WsProviderAuthStartRpc,
