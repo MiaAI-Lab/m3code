@@ -1,4 +1,3 @@
-.github/workflows/upstream-sync.yml
 apps/mobile/src/components/M3Wordmark.tsx
 apps/mobile/src/features/settings/SettingsInferenceRouteScreen.tsx
 apps/mobile/src/features/threads/ThreadLastInferenceRequest.tsx
