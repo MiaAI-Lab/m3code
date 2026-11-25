@@ -210,6 +210,16 @@ The AppImage is written to `release/`. It does not auto-update; rebuild to updat
 
 See [Local models](./docs/user/local-models.md) for setting up servers and providers.
 
+### Developing on Windows
+
+`vp i` then `vp run dev` work the same as on Linux (see
+[Development](./docs/operations/00_development.md)). Two things trip people up:
+
+- If `vp` is not installed globally, call the repo's copy: `.\node_modules\.bin\vp.cmd` in
+  PowerShell, `node_modules/.bin/vp` in Git Bash.
+- Run tests and `vp run check:changed` from PowerShell. Git Bash puts GNU tar ahead of Windows'
+  tar, and GNU tar reads `D:\...` as a remote host, so the desktop artifact tests fail there.
+
 ## Credits and license
 
 Upstream T3 Code is built by [T3 Tools](https://github.com/pingdotgg/t3code) and its contributors. This
