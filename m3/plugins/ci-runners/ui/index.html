@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>M3 CI Runners</title>
+    <script src="/api/m3-plugins/sdk.js"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d12;
+        --surface: #121620;
+        --surface-2: #181d2a;
+        --border: #242b3d;
+        --text: #e6ebf5;
+        --muted: #8b95ab;
+        --accent: #60a5fa;
+        --green: #34d399;
+        --amber: #fbbf24;
+        --red: #f87171;
+        --radius: 8px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+        font-size: 13px;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.45;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .pill {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--muted);
+      }
+      .pill.online {
+        color: var(--green);
+        border-color: rgba(52, 211, 153, 0.35);
+      }
+      .pill.busy {
+        color: var(--amber);
+        border-color: rgba(251, 191, 36, 0.35);
+      }
+      .pill.error,
+      .pill.offline,
+      .pill.unreachable {
+        color: var(--red);
+        border-color: rgba(248, 113, 113, 0.35);
+      }
+      nav {
+        display: flex;
+        gap: 4px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      nav button {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid transparent;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      nav button.active {
+        color: var(--text);
+        background: var(--surface-2);
+        border-color: var(--border);
+        font-weight: 600;
+      }
+      main {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+      }
+      .card-title {
+        font-size: 12px;
+        font-weight: 600;
+        margin: 0 0 10px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 8px;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      input,
+      select,
+      textarea {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-size: 12px;
+        font-family: inherit;
+      }
+      textarea,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+      }
+      pre {
+        margin: 0;
+        padding: 10px;
+        background: #07090d;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow-x: auto;
+        max-height: 280px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      button.btn {
+        background: var(--surface-2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      button.btn.primary {
+        background: #1d4ed8;
+        border-color: #2563eb;
+        color: #fff;
+        font-weight: 500;
+      }
+      button.btn.danger {
+        color: var(--red);
+      }
+      button.btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .runner-item,
+      .run-item {
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface-2);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .banner {
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        font-size: 12px;
+      }
+      .banner.err {
+        border-color: rgba(248, 113, 113, 0.5);
+        color: var(--red);
+      }
+      .banner.ok {
+        border-color: rgba(52, 211, 153, 0.45);
+        color: var(--green);
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>CI Runners <span class="pill">Native Plugin</span></h1>
+      <button class="btn" id="refreshBtn" type="button">Refresh</button>
+    </header>
+
+    <nav>
+      <button class="active" data-tab="runners" type="button">Runners</button>
+      <button data-tab="runs" type="button">Runs &amp; Logs</button>
+      <button data-tab="deploy" type="button">Deploy Runner</button>
+    </nav>
+
+    <main>
+      <div id="banner" class="banner hidden"></div>
+
+      <!-- TAB 1: RUNNERS -->
+      <section id="tab-runners" class="stack">
+        <div class="card">
+          <div class="card-title">
+            <span>Self-Hosted Runner Fleet</span>
+            <span class="muted" id="runnerCount">0 configured</span>
+          </div>
+          <div id="runnersList" class="stack"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><span>Connect a CI Runner</span></div>
+          <form id="addRunnerForm" class="stack">
+            <div class="grid">
+              <label>
+                Name
+                <input name="name" placeholder="spark-gpu-runner" required />
+              </label>
+              <label>
+                Provider
+                <select name="provider">
+                  <option value="custom-http">Custom M3 HTTP Runner</option>
+                  <option value="github">GitHub Actions (Self-Hosted)</option>
+                  <option value="gitlab">GitLab Runner</option>
+                  <option value="forgejo">Forgejo / Gitea Actions</option>
+                </select>
+              </label>
+              <label>
+                API Base URL
+                <input name="apiBaseUrl" placeholder="http://10.0.0.5:8787" required />
+              </label>
+              <label>
+                Repo / Project (for forge providers)
+                <input name="repo" placeholder="owner/repo" />
+              </label>
+              <label>
+                Default Workflow (optional)
+                <input name="defaultWorkflow" placeholder="ci.yml" />
+              </label>
+              <label>
+                Labels (comma-separated)
+                <input name="labels" placeholder="self-hosted,linux,x64" />
+              </label>
+              <label>
+                Bearer / API Token (stored locally 0600)
+                <input name="token" type="password" placeholder="Optional token" />
+              </label>
+            </div>
+            <div class="row">
+              <button class="btn primary" type="submit">Add Runner</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB 2: RUNS & LOGS -->
+      <section id="tab-runs" class="stack hidden">
+        <div class="card">
+          <div class="card-title">
+            <span>Trigger &amp; Inspect Runs</span>
+            <select id="runRunnerSelect"></select>
+          </div>
+          <form id="triggerForm" class="stack">
+            <div class="grid">
+              <label>
+                Git Ref / Branch
+                <input name="ref" value="main" />
+              </label>
+              <label>
+                Workflow (GitHub / Forgejo)
+                <input name="workflow" placeholder="ci.yml" />
+              </label>
+              <label>
+                Command (Custom HTTP Runner)
+                <input name="command" placeholder="pnpm test" />
+              </label>
+            </div>
+            <div class="row">
+              <button class="btn primary" type="submit">Trigger Run</button>
+              <button class="btn" id="loadRunsBtn" type="button">Reload Runs</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Recent Runs</span>
+            <span class="muted" id="runsSource"></span>
+          </div>
+          <div id="runsList" class="stack"></div>
+        </div>
+
+        <div id="logsCard" class="card hidden">
+          <div class="card-title">
+            <span id="logsTitle">Run Logs</span>
+            <button class="btn primary" id="sendLogsToAgentBtn" type="button">
+              Send Logs to Agent
+            </button>
+          </div>
+          <pre id="logsPre"></pre>
+        </div>
+      </section>
+
+      <!-- TAB 3: DEPLOY RUNNER -->
+      <section id="tab-deploy" class="stack hidden">
+        <div class="card">
+          <div class="card-title">
+            <span>Deploy Self-Hosted CI Runner</span>
+            <a class="muted" href="./api/deploy/agent-script" download="m3-runner-agent.mjs">
+              Download m3-runner-agent.mjs
+            </a>
+          </div>
+          <form id="deployForm" class="stack">
+            <div class="grid">
+              <label>
+                Runner Type
+                <select name="provider">
+                  <option value="custom-http">Custom M3 HTTP Runner</option>
+                  <option value="github">GitHub Actions Runner</option>
+                  <option value="gitlab">GitLab Runner</option>
+                  <option value="forgejo">Forgejo / Gitea Runner</option>
+                </select>
+              </label>
+              <label>
+                Deploy Target
+                <select name="mode">
+                  <option value="docker">Docker (Local / Compose)</option>
+                  <option value="ssh">Remote Host over SSH</option>
+                  <option value="systemd">Linux systemd Unit</option>
+                </select>
+              </label>
+              <label>
+                Runner Name
+                <input name="name" value="m3-ci-runner-1" required />
+              </label>
+              <label>
+                Labels
+                <input name="labels" value="self-hosted,linux,m3" />
+              </label>
+              <label>
+                Port (Custom HTTP)
+                <input name="port" type="number" value="8787" />
+              </label>
+              <label>
+                Concurrency
+                <input name="concurrency" type="number" value="2" />
+              </label>
+              <label>
+                Instance / Repo URL (Forge)
+                <input name="instanceUrl" placeholder="https://github.com/org/repo" />
+              </label>
+              <label>
+                Registration / Auth Token
+                <input name="registrationToken" type="password" placeholder="Runner token" />
+              </label>
+              <label>
+                SSH Host (for SSH mode)
+                <input name="sshHost" placeholder="10.0.0.5" />
+              </label>
+              <label>
+                SSH User
+                <input name="sshUser" value="root" />
+              </label>
+            </div>
+            <div class="row">
+              <button class="btn" id="previewDeployBtn" type="button">Generate Plan</button>
+              <button class="btn primary" id="execDeployBtn" type="button">Deploy Now</button>
+              <label style="flex-direction: row; align-items: center; gap: 6px; margin-left: 6px">
+                <input type="checkbox" id="autoRegisterChk" checked />
+                Auto-register runner after deploy
+              </label>
+            </div>
+          </form>
+        </div>
+
+        <div id="deployPreviewCard" class="card hidden stack">
+          <div class="card-title"><span id="deployPreviewTitle">Deployment Plan</span></div>
+          <pre id="deployPreviewPre"></pre>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const state = {
+        runners: [],
+        probes: {},
+        selectedRunnerId: "",
+        activeLogs: "",
+        activeRunId: "",
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      function showBanner(msg, kind = "ok") {
+        const el = $("banner");
+        el.textContent = msg;
+        el.className = `banner ${kind}`;
+        el.classList.remove("hidden");
+      }
+
+      async function api(path, options = {}) {
+        const res = await fetch(`./api${path}`, {
+          headers: { "content-type": "application/json", ...(options.headers || {}) },
+          ...options,
+        });
+        const data = await res.json().catch(() => ({ ok: false, error: `HTTP ${res.status}` }));
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || `Request failed (HTTP ${res.status})`);
+        }
+        return data;
+      }
+
+      function renderRunners() {
+        $("runnerCount").textContent = `${state.runners.length} configured`;
+        const list = $("runnersList");
+        const select = $("runRunnerSelect");
+        list.innerHTML = "";
+        select.innerHTML = "";
+
+        if (state.runners.length === 0) {
+          list.innerHTML =
+            '<div class="muted">No runners connected yet. Add one below or deploy a new runner in the Deploy tab.</div>';
+          return;
+        }
+
+        if (
+          !state.selectedRunnerId ||
+          !state.runners.some((r) => r.id === state.selectedRunnerId)
+        ) {
+          state.selectedRunnerId = state.runners[0].id;
+        }
+
+        for (const r of state.runners) {
+          const opt = document.createElement("option");
+          opt.value = r.id;
+          opt.textContent = `${r.name} (${r.provider})`;
+          if (r.id === state.selectedRunnerId) opt.selected = true;
+          select.appendChild(opt);
+
+          const probe = state.probes[r.id];
+          const status = probe ? probe.status : "unprobed";
+          const div = document.createElement("div");
+          div.className = "runner-item";
+          div.innerHTML = `
+            <div>
+              <div class="row">
+                <strong>${escapeHtml(r.name)}</strong>
+                <span class="pill ${escapeHtml(status)}">${escapeHtml(status)}</span>
+                <span class="pill">${escapeHtml(r.provider)}</span>
+                ${probe?.latencyMs != null ? `<span class="muted">${probe.latencyMs} ms</span>` : ""}
+              </div>
+              <div class="muted" style="margin-top:4px">${escapeHtml(r.apiBaseUrl)}${r.repo ? ` · ${escapeHtml(r.repo)}` : ""}</div>
+              ${r.labels?.length ? `<div class="muted" style="margin-top:2px">Labels: ${escapeHtml(r.labels.join(", "))}</div>` : ""}
+              ${probe?.error ? `<div class="muted" style="color:var(--red);margin-top:2px">${escapeHtml(probe.error)}</div>` : ""}
+            </div>
+            <div class="row">
+              <button class="btn" data-probe="${escapeHtml(r.id)}" type="button">Probe</button>
+              <button class="btn" data-inspect="${escapeHtml(r.id)}" type="button">Runs</button>
+              <button class="btn danger" data-delete="${escapeHtml(r.id)}" type="button">Remove</button>
+            </div>
+          `;
+          list.appendChild(div);
+        }
+      }
+
+      function escapeHtml(str) {
+        return String(str ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      async function loadRunners() {
+        try {
+          const data = await api("/runners");
+          state.runners = data.runners || [];
+          renderRunners();
+        } catch (err) {
+          showBanner(err.message, "err");
+        }
+      }
+
+      async function probeById(id) {
+        try {
+          const res = await api(`/runners/${encodeURIComponent(id)}/probe`, { method: "POST" });
+          state.probes[id] = res;
+          renderRunners();
+        } catch (err) {
+          showBanner(err.message, "err");
+        }
+      }
+
+      async function loadRuns() {
+        const id = state.selectedRunnerId;
+        if (!id) return;
+        const list = $("runsList");
+        list.innerHTML = '<div class="muted">Loading runs...</div>';
+        try {
+          const data = await api(`/runners/${encodeURIComponent(id)}/runs`);
+          $("runsSource").textContent = data.warning
+            ? `${data.source} (${data.warning})`
+            : data.source;
+          list.innerHTML = "";
+          if (!data.runs || data.runs.length === 0) {
+            list.innerHTML = '<div class="muted">No runs recorded yet.</div>';
+            return;
+          }
+          for (const run of data.runs) {
+            const badge = run.conclusion || run.status || "unknown";
+            const cls = badge === "success" ? "online" : badge === "failure" ? "error" : "busy";
+            const row = document.createElement("div");
+            row.className = "run-item";
+            row.innerHTML = `
+              <div>
+                <div class="row">
+                  <strong>${escapeHtml(run.name || run.id)}</strong>
+                  <span class="pill ${cls}">${escapeHtml(badge)}</span>
+                  <span class="muted">${escapeHtml(run.ref || "")}</span>
+                </div>
+                <div class="muted" style="margin-top:3px">ID: ${escapeHtml(run.id)}${run.createdAt ? ` · ${escapeHtml(run.createdAt)}` : ""}</div>
+              </div>
+              <div class="row">
+                <button class="btn" data-logs="${escapeHtml(run.id)}" type="button">Logs</button>
+                ${run.status === "in_progress" || run.status === "queued" ? `<button class="btn danger" data-cancel="${escapeHtml(run.id)}" type="button">Cancel</button>` : ""}
+              </div>
+            `;
+            list.appendChild(row);
+          }
+        } catch (err) {
+          list.innerHTML = `<div class="muted" style="color:var(--red)">${escapeHtml(err.message)}</div>`;
+        }
+      }
+
+      function switchTab(tab) {
+        document.querySelectorAll("nav button").forEach((b) => {
+          b.classList.toggle("active", b.dataset.tab === tab);
+        });
+        ["runners", "runs", "deploy"].forEach((name) => {
+          $(`tab-${name}`).classList.toggle("hidden", name !== tab);
+        });
+        if (tab === "runs") void loadRuns();
+      }
+
+      document.querySelectorAll("nav button").forEach((btn) => {
+        btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+      });
+
+      $("refreshBtn").addEventListener("click", () => {
+        void loadRunners();
+        if (!$("tab-runs").classList.contains("hidden")) void loadRuns();
+      });
+
+      $("addRunnerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+          await api("/runners", {
+            method: "POST",
+            body: JSON.stringify(Object.fromEntries(fd.entries())),
+          });
+          e.target.reset();
+          showBanner("Runner connected.", "ok");
+          await loadRunners();
+        } catch (err) {
+          showBanner(err.message, "err");
+        }
+      });
+
+      $("runnersList").addEventListener("click", async (e) => {
+        const probeId = e.target.getAttribute("data-probe");
+        if (probeId) return probeById(probeId);
+        const inspectId = e.target.getAttribute("data-inspect");
+        if (inspectId) {
+          state.selectedRunnerId = inspectId;
+          $("runRunnerSelect").value = inspectId;
+          switchTab("runs");
+          return;
+        }
+        const delId = e.target.getAttribute("data-delete");
+        if (delId) {
+          try {
+            await api(`/runners/${encodeURIComponent(delId)}`, { method: "DELETE" });
+            showBanner("Runner removed.", "ok");
+            await loadRunners();
+          } catch (err) {
+            showBanner(err.message, "err");
+          }
+        }
+      });
+
+      $("runRunnerSelect").addEventListener("change", (e) => {
+        state.selectedRunnerId = e.target.value;
+        void loadRuns();
+      });
+
+      $("loadRunsBtn").addEventListener("click", () => void loadRuns());
+
+      $("triggerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!state.selectedRunnerId) return showBanner("Select a runner first.", "err");
+        const fd = new FormData(e.target);
+        try {
+          const res = await api(`/runners/${encodeURIComponent(state.selectedRunnerId)}/trigger`, {
+            method: "POST",
+            body: JSON.stringify(Object.fromEntries(fd.entries())),
+          });
+          showBanner(`Run triggered (${res.runId || res.status}).`, "ok");
+          window.M3Plugin?.toast("CI Run Triggered", `${res.ref} (${res.status})`).catch(() => {});
+          await loadRuns();
+        } catch (err) {
+          showBanner(err.message, "err");
+        }
+      });
+
+      $("runsList").addEventListener("click", async (e) => {
+        const logsId = e.target.getAttribute("data-logs");
+        if (logsId) {
+          try {
+            const res = await api(
+              `/runners/${encodeURIComponent(state.selectedRunnerId)}/runs/${encodeURIComponent(logsId)}/logs`,
+            );
+            state.activeRunId = logsId;
+            state.activeLogs = res.logs || "";
+            $("logsTitle").textContent = `Logs · ${logsId}`;
+            $("logsPre").textContent = state.activeLogs || "(empty)";
+            $("logsCard").classList.remove("hidden");
+          } catch (err) {
+            showBanner(err.message, "err");
+          }
+          return;
+        }
+        const cancelId = e.target.getAttribute("data-cancel");
+        if (cancelId) {
+          try {
+            await api(
+              `/runners/${encodeURIComponent(state.selectedRunnerId)}/runs/${encodeURIComponent(cancelId)}/cancel`,
+              { method: "POST" },
+            );
+            showBanner(`Cancelled run ${cancelId}.`, "ok");
+            await loadRuns();
+          } catch (err) {
+            showBanner(err.message, "err");
+          }
+        }
+      });
+
+      $("sendLogsToAgentBtn").addEventListener("click", () => {
+        if (!state.activeLogs) return;
+        const tail = state.activeLogs.slice(-6000);
+        const prompt = `Inspect and fix this CI failure from run ${state.activeRunId}:\n\n\`\`\`\n${tail}\n\`\`\``;
+        window.M3Plugin?.injectPrompt(prompt)
+          .then(() => showBanner("Sent CI logs to M3 Code composer.", "ok"))
+          .catch((err) => showBanner(err.message, "err"));
+      });
+
+      function readDeployPayload() {
+        const fd = new FormData($("deployForm"));
+        return {
+          ...Object.fromEntries(fd.entries()),
+          autoRegister: $("autoRegisterChk").checked,
+        };
+      }
+
+      $("previewDeployBtn").addEventListener("click", async () => {
+        try {
+          const { plan } = await api("/deploy/plan", {
+            method: "POST",
+            body: JSON.stringify(readDeployPayload()),
+          });
+          $("deployPreviewTitle").textContent = `Deployment Plan (${plan.provider} · ${plan.mode})`;
+          const out =
+            plan.mode === "systemd"
+              ? plan.systemdUnit
+              : plan.mode === "ssh"
+                ? `# ${plan.sshCommand}\n\n${plan.remoteInstallScript}`
+                : `# docker-compose.yml\n${plan.dockerComposeYaml}\n# CLI\n${plan.dockerCommand}`;
+          $("deployPreviewPre").textContent = out;
+          $("deployPreviewCard").classList.remove("hidden");
+        } catch (err) {
+          showBanner(err.message, "err");
+        }
+      });
+
+      $("execDeployBtn").addEventListener("click", async () => {
+        try {
+          showBanner("Deploying runner...", "ok");
+          const res = await api("/deploy/execute", {
+            method: "POST",
+            body: JSON.stringify(readDeployPayload()),
+          });
+          $("deployPreviewTitle").textContent = `Deploy Output (exit ${res.exitCode})`;
+          $("deployPreviewPre").textContent =
+            [res.stdout, res.stderr].filter(Boolean).join("\n") || "(no output)";
+          $("deployPreviewCard").classList.remove("hidden");
+          showBanner(`Runner "${res.plan.name}" deployed.`, "ok");
+          await loadRunners();
+        } catch (err) {
+          showBanner(err.message, "err");
+        }
+      });
+
+      void loadRunners();
+    </script>
+  </body>
+</html>

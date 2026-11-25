@@ -50,6 +50,8 @@ export interface M3PluginRecord {
   readonly enabled: boolean;
   readonly status: M3PluginStatus;
   readonly isSymlink: boolean;
+  /** True when bundled natively with M3 Code under `m3/plugins/`. */
+  readonly builtin?: boolean;
   /** URL the UI iframe/webview loads (either static bundle path or sidecar proxy path). */
   readonly entryUrl: string | null;
   readonly sidecarPort: number | null;
