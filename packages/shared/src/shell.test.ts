@@ -195,6 +195,13 @@ describe("readEnvironmentFromLoginShell", () => {
       detached: true,
       stdio: ["ignore", "pipe", "ignore"],
     });
+    expect(execFile.mock.calls[0]?.[1]?.[0]).toBe("-ilc");
+
+    execFile.mockClear();
+    expect(
+      readEnvironmentFromLoginShell("/bin/zsh", ["PATH"], execFile, { interactive: false }),
+    ).toEqual({ PATH: "/a:/b" });
+    expect(execFile.mock.calls[0]?.[1]?.[0]).toBe("-lc");
   });
 
   it("omits environment variables that are missing or empty", () => {

@@ -58,6 +58,7 @@ effectIt.effect("hydrates PATH when the desktop handoff is absent", () =>
         );
 
         assert.equal(probe.mock.calls.length, 1);
+        assert.equal(probe.mock.calls[0]?.[1]?.[0], "-lc");
         assert.equal(env.PATH, "/opt/tools/bin:/usr/bin");
       }),
     (probe) => Effect.sync(() => probe.mockRestore()),

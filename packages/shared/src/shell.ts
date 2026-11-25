@@ -375,30 +375,41 @@ export function extractEnvironmentValues(
   return environment;
 }
 
+export interface LoginShellReadOptions {
+  readonly interactive?: boolean;
+}
+
 export type ShellEnvironmentReader = (
   shell: string,
   names: ReadonlyArray<string>,
   execFile?: ExecFileSyncLike,
+  options?: LoginShellReadOptions,
 ) => Partial<Record<string, string>>;
 
 export const readEnvironmentFromLoginShell: ShellEnvironmentReader = (
   shell,
   names,
   execFile = NodeChildProcess.execFileSync,
+  options,
 ) => {
   if (names.length === 0) {
     return {};
   }
 
-  // Interactive startup loads PATH entries; detaching prevents job control on an
-  // inherited controlling TTY from stopping the probe while the parent waits.
-  const output = execFile(shell, ["-ilc", buildEnvironmentCaptureCommand(shell, names)], {
-    encoding: "utf8",
-    timeout: 5000,
-    killSignal: "SIGKILL",
-    detached: true,
-    stdio: ["ignore", "pipe", "ignore"],
-  });
+  const interactive = options?.interactive ?? true;
+  // Detaching prevents job control on an inherited controlling TTY from stopping
+  // the probe while the parent waits.
+  const output = execFile(
+    shell,
+    [interactive ? "-ilc" : "-lc", buildEnvironmentCaptureCommand(shell, names)],
+    {
+      encoding: "utf8",
+      timeout: 5000,
+      killSignal: "SIGKILL",
+      detached: true,
+      stdio: ["ignore", "pipe", "ignore"],
+    },
+  );
 
   return extractEnvironmentValues(output, names);
 };
