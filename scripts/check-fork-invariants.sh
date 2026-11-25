@@ -24,4 +24,10 @@ if [ -n "$hits" ]; then echo "Telemetry dependencies present:"; echo "$hits"; ba
 files=$(git ls-files -- 'packages/shared/src/observability.ts' 'packages/shared/src/otelEnvironment.ts' 'packages/shared/src/telemetryId.ts')
 if [ -n "$files" ]; then echo "Telemetry modules present:"; echo "$files"; bad=1; fi
 
+# Runtime downloads must not come from upstream's releases: they share version numbers with this
+# fork, so `t3 service install` / `t3 update` would silently install upstream T3 Code.
+if ! grep -qE '^const CLI_RELEASE_REPOSITORY = "MiaAI-Lab/m3code";' packages/shared/src/cliRelease.ts; then
+  echo "packages/shared/src/cliRelease.ts: CLI_RELEASE_REPOSITORY must be MiaAI-Lab/m3code"; bad=1
+fi
+
 exit $bad

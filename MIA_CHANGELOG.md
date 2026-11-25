@@ -5,6 +5,16 @@ changes on top of upstream [T3 Code](https://github.com/pingdotgg/t3code). It is
 `b90e554e0` (2026-11-06). Newest first. Every change to the client–server protocol is additive, so
 the official T3 Code mobile app keeps working against this fork's server.
 
+## 2026-11-25: Runtime downloads come from this fork, not upstream
+
+- **`t3 service install`, `t3 update` and the SSH runtime fallback no longer install upstream T3
+  Code**: `CLI_RELEASE_REPOSITORY` in `packages/shared/src/cliRelease.ts` pointed at
+  `pingdotgg/t3code`. The fork's CLI reports upstream version numbers (`0.1.11`), so
+  `t3 service install` downloaded upstream's `v0.1.11` release, which passed the checksum, and made
+  it the background service, telemetry included. It now points at `MiaAI-Lab/m3code`. Until this
+  fork publishes releases, those downloads fail with a 404 instead of installing upstream.
+  `scripts/check-fork-invariants.sh` checks the constant after each upstream merge.
+
 ## 2026-11-24: Antigravity CLI update/path fixes, direct MCP wizard, and self-hosted M3 Server
 
 - **Antigravity CLI settings & one-click update**: allowed custom `binaryPath` overrides to point at
