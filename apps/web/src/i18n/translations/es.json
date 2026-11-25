@@ -2259,6 +2259,71 @@
   "8fffd1cf07b7fbc6": "Configuración de atajos de teclado no válida",
   "9e4394e5b89e57a1": "Restaurando tus hilos…",
   "5579a5d039c6962c": "{count, plural, one {Migrando {total} hilo de la versión anterior. Puedes seguir trabajando mientras termina.} other {Migrando {total} hilos de la versión anterior. Puedes seguir trabajando mientras termina.}}",
+  "f3f037069970a30b": "Install failed",
+  "6d3cb458522ca1ff": "Plugins reloaded",
+  "eea0c6c5371e3293": "Local path, git URL, or github:owner/repo",
+  "94289a28173e294d": "Desactivar",
+  "2c291721a16e936d": "Activar",
+  "9b82b2b99c73e267": "M3 Plugins",
+  "a37646f7c2504a45": "M3 Plugins",
+  "bb8fff52ca52ac6b": [
+    "User-space plugins loaded from",
+    " ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    }
+  ],
+  "c8e5d8e9e51be6fb": "Recargar",
+  "f53cc2278f5d8808": "Symlink",
+  "b848773fd942cc02": "Install",
+  "9c116592a06f4bf9": [
+    "Drop a folder with ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": "plugin.json"
+    },
+    " into",
+    " ",
+    {
+      "t": "code",
+      "i": 2,
+      "c": {
+        "i": 3,
+        "k": "_gt_value_3",
+        "v": "v"
+      }
+    },
+    " ",
+    "or install one above."
+  ],
+  "b20ec7ee33222e70": [
+    "Slots: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "1439e3a619d653ba": [
+    "Events: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "66213fda21f8d13a": "Panel",
+  "58d8223cc47e7b06": "Tab",
+  "0dbf12855bc3c194": "Modal",
+  "111a44209dc6e701": "Quitar",
+  "ebf33274ee2bbd52": "Plugins",
   "8117d2b1eaef9f82": [
     "Este entorno lo gestiona ",
     {
@@ -3214,10 +3279,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "en el ordenador que abrió esta página"
-      ],
+      "c": [" ", "en el ordenador que abrió esta página"],
       "i": 2,
       "t": "span"
     }
@@ -3229,10 +3291,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "· quien lo ejecute obtiene este acceso"
-      ],
+      "c": [" ", "· quien lo ejecute obtiene este acceso"],
       "i": 2,
       "t": "span"
     }
@@ -6305,7 +6364,6 @@
   "6ed1357c34d130ae": "Confirmar que el servidor de desarrollo se está ejecutando",
   "8dde65fb15633837": "Abrirlo en el navegador del entorno, que accede a su red",
   "a7cc5ea7388fc0bd": "Revisar el proxy y el firewall",
-  "c8e5d8e9e51be6fb": "Recargar",
   "b54cf7575b169cc2": "Perfil eliminado",
   "47c47bbab985e718": "No se pudo abrir esta dirección",
   "f0287e8bebecf7c2": "Introduce una URL http o https.",
@@ -7526,7 +7584,6 @@
   "f8d29f698314bb6e": "Creando…",
   "647bd066558e1add": "Predeterminado",
   "84dc0da709ddecd1": "Configurar",
-  "94289a28173e294d": "Desactivar",
   "568aae4a722512f5": "Ámbitos concedidos",
   "95e792b0c8b0121a": "Crea un enlace nuevo para compartir desde este cliente.",
   "c70997735272aa6c": "Copia el token y empareja desde otro cliente usando el host accesible de este backend.",
@@ -8102,7 +8159,6 @@
   "d9b97f4f5da2517e": "Desactivar WSL",
   "68916f6f608ece80": "Cambiar de distro",
   "afd31786b2fd29f0": "Endpoint de MagicDNS pendiente",
-  "2c291721a16e936d": "Activar",
   "d087da5017f20fa2": "No hay ningún entorno seleccionado",
   "cb553d31c9d1b1c7": "Conecta un entorno para ver sus ajustes y su acceso.",
   "9a84dc0e80037e05": "Esta app",
@@ -9039,7 +9095,6 @@
   "e749b8ba2ff18f8f": "Añadir {name} al proyecto",
   "6d08f0285e2bbf34": "Añadir carpeta",
   "b7820a37d8ff1918": "Los repositorios dentro de esta carpeta forman parte del proyecto en cuanto están ahí. Añade una carpeta para incorporar uno de otro lugar.",
-  "111a44209dc6e701": "Quitar",
   "daafb41c2b3c066f": "En el archivo del espacio de trabajo",
   "2c5c798252f91fdc": "Añadir",
   "7e4d1ce9725c2327": "Sigue un repositorio o una carpeta en cualquier lugar del equipo de este proyecto.",

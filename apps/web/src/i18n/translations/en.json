@@ -2259,6 +2259,71 @@
   "8fffd1cf07b7fbc6": "Invalid keybindings configuration",
   "9e4394e5b89e57a1": "Restoring your threads…",
   "5579a5d039c6962c": "{count, plural, one {Migrating {total} thread from the previous version. You can keep working while this finishes.} other {Migrating {total} threads from the previous version. You can keep working while this finishes.}}",
+  "f3f037069970a30b": "Install failed",
+  "6d3cb458522ca1ff": "Plugins reloaded",
+  "eea0c6c5371e3293": "Local path, git URL, or github:owner/repo",
+  "94289a28173e294d": "Disable",
+  "2c291721a16e936d": "Enable",
+  "9b82b2b99c73e267": "M3 Plugins",
+  "a37646f7c2504a45": "M3 Plugins",
+  "bb8fff52ca52ac6b": [
+    "User-space plugins loaded from",
+    " ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    }
+  ],
+  "c8e5d8e9e51be6fb": "Reload",
+  "f53cc2278f5d8808": "Symlink",
+  "b848773fd942cc02": "Install",
+  "9c116592a06f4bf9": [
+    "Drop a folder with ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": "plugin.json"
+    },
+    " into",
+    " ",
+    {
+      "t": "code",
+      "i": 2,
+      "c": {
+        "i": 3,
+        "k": "_gt_value_3",
+        "v": "v"
+      }
+    },
+    " ",
+    "or install one above."
+  ],
+  "b20ec7ee33222e70": [
+    "Slots: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "1439e3a619d653ba": [
+    "Events: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "66213fda21f8d13a": "Panel",
+  "58d8223cc47e7b06": "Tab",
+  "0dbf12855bc3c194": "Modal",
+  "111a44209dc6e701": "Remove",
+  "ebf33274ee2bbd52": "Plugins",
   "8117d2b1eaef9f82": [
     "This environment is managed by ",
     {
@@ -3216,10 +3281,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "on the computer that opened this page"
-      ]
+      "c": [" ", "on the computer that opened this page"]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3231,10 +3293,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "· whoever runs it gets this access"
-      ]
+      "c": [" ", "· whoever runs it gets this access"]
     }
   ],
   "c54cc9c75db9dc58": "Only approve a sign-in you just started.",
@@ -6308,7 +6367,6 @@
   "6ed1357c34d130ae": "Confirming the dev server is running",
   "8dde65fb15633837": "Opening it in the environment’s browser, which reaches its network",
   "a7cc5ea7388fc0bd": "Checking the proxy and the firewall",
-  "c8e5d8e9e51be6fb": "Reload",
   "b54cf7575b169cc2": "Removed profile",
   "47c47bbab985e718": "Could not open this address",
   "f0287e8bebecf7c2": "Enter an http or https URL.",
@@ -7533,7 +7591,6 @@
   "f8d29f698314bb6e": "Creating…",
   "647bd066558e1add": "Default",
   "84dc0da709ddecd1": "Setup",
-  "94289a28173e294d": "Disable",
   "568aae4a722512f5": "Granted scopes",
   "95e792b0c8b0121a": "Create a new link to share from this client.",
   "c70997735272aa6c": "Copy the token and pair from another client using this backend's reachable host.",
@@ -8109,7 +8166,6 @@
   "d9b97f4f5da2517e": "Disable WSL",
   "68916f6f608ece80": "Switch distro",
   "afd31786b2fd29f0": "Pending MagicDNS endpoint",
-  "2c291721a16e936d": "Enable",
   "d087da5017f20fa2": "No environment selected",
   "cb553d31c9d1b1c7": "Connect an environment to view its settings and access.",
   "9a84dc0e80037e05": "This app",
@@ -9048,7 +9104,6 @@
   "e749b8ba2ff18f8f": "Add {name} to the project",
   "6d08f0285e2bbf34": "Add folder",
   "b7820a37d8ff1918": "Repositories inside this folder are part of the project as soon as they are there. Add a folder to bring in one from somewhere else.",
-  "111a44209dc6e701": "Remove",
   "daafb41c2b3c066f": "In workspace file",
   "2c5c798252f91fdc": "Add",
   "7e4d1ce9725c2327": "Track a repository or folder anywhere on this project's machine.",
