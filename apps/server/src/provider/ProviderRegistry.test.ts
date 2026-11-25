@@ -4348,146 +4348,144 @@ it.layer(
       );
     });
 
-    // On Windows the pending snapshot never arrives while the second probe's spawn is held.
-    it.effect.skipIf(HostProcess.Platform.defaultValue() === "win32")(
-      "re-probes when settings change the codex binaryPath",
-      () =>
-        Effect.gen(function* () {
-          const firstMissing = `t3code_codex_first_`;
-          const secondMissing = `t3code_codex_second_`;
-          const spawnedCommands: Array<string> = [];
-          const secondProbeStarted = yield* Deferred.make<void>();
-          const releaseSecondProbe = yield* Deferred.make<void>();
-          const allowLazySettingsStream = yield* Deferred.make<void>();
-          const mutableServerSettings = yield* makeMutableServerSettingsService(
-            decodeServerSettings(
-              deepMerge(encodedDefaultServerSettings, {
-                providerInstances: {
-                  ...disabledDefaultSlots("claudeAgent", "cursor", "grok", "opencode"),
-                  [ProviderInstanceId.make("codex")]: {
-                    driver: ProviderDriverKind.make("codex"),
-                    enabled: true,
-                    config: { binaryPath: firstMissing },
-                  },
-                },
-              }),
-            ),
-          );
-          const serverSettings = {
-            ...mutableServerSettings,
-            streamChanges: Stream.unwrap(
-              Deferred.await(allowLazySettingsStream).pipe(
-                Effect.as(mutableServerSettings.streamChanges),
-              ),
-            ),
-          } satisfies ServerSettingsModule.ServerSettingsService["Service"];
-          const scope = yield* Scope.make();
-          yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void));
-          const layerProviderRegistry = ProviderRegistry.layer.pipe(
-            Layer.provideMerge(
-              ProviderInstanceRegistryHydration.layer.pipe(
-                Layer.provide(
-                  Layer.mergeAll(
-                    PortScanner.layerTest,
-                    ProviderInstallationGate.layer,
-                    SqlitePersistence.layerMemory,
-                  ),
-                ),
-              ),
-            ),
-            Layer.provideMerge(AntigravityInstallation.AntigravityInstallation.layer),
-            Layer.provideMerge(
-              Layer.succeed(ServerSettingsModule.ServerSettingsService, serverSettings),
-            ),
-            Layer.provideMerge(ServerSecretStore.layer),
-            Layer.provideMerge(
-              ServerConfig.layerTest(process.cwd(), {
-                prefix: "t3-provider-registry-",
-              }),
-            ),
-            Layer.provideMerge(layerTestHttpClient),
-            Layer.provideMerge(
-              Layer.succeed(
-                ProviderEventLoggers.ProviderEventLoggers,
-                ProviderEventLoggers.NoOpProviderEventLoggers,
-              ),
-            ),
-            Layer.provideMerge(ProviderLatestVersions.layer),
-            Layer.provideMerge(McpProviderSessions.layer),
-            Layer.provideMerge(ModelManifest.layerTest),
-            Layer.provideMerge(ResetCreditCoordinator.layerTest),
-            Layer.provideMerge(
-              OpenCodeRuntime.layer.pipe(Layer.provide(OpenCodeServerLedger.layerTest)),
-            ),
-            Layer.updateService(ChildProcessSpawner.ChildProcessSpawner, (spawner) =>
-              ChildProcessSpawner.make((command) => {
-                if (command._tag !== "StandardCommand") return spawner.spawn(command);
-                spawnedCommands.push(command.command);
-                const beforeSpawn =
-                  command.command === secondMissing
-                    ? Deferred.succeed(secondProbeStarted, undefined).pipe(
-                        Effect.andThen(Deferred.await(releaseSecondProbe)),
-                      )
-                    : Effect.void;
-                return beforeSpawn.pipe(Effect.andThen(spawner.spawn(command)));
-              }),
-            ),
-            Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
-            Layer.provideMerge(layerBackgroundPolicyAlwaysRun),
-          );
-          const runtimeServices = yield* Layer.build(layerProviderRegistry).pipe(
-            Scope.provide(scope),
-          );
-
-          yield* Effect.gen(function* () {
-            const registry = yield* ProviderRegistry.ProviderRegistry;
-            const codexSnapshots = registry.streamChanges.pipe(
-              Stream.map((providers) =>
-                providers.find((provider) => provider.instanceId === "codex"),
-              ),
-              Stream.filter((provider): provider is ServerProvider => provider !== undefined),
-            );
-            const firstError = yield* Stream.toPull(
-              codexSnapshots.pipe(Stream.filter((provider) => provider.status === "error")),
-            );
-            const currentCodex = (yield* registry.getProviders).find(
-              (provider) => provider.instanceId === "codex",
-            );
-            const initialCodex =
-              currentCodex?.status === "error" ? currentCodex : (yield* firstError)[0];
-            assert.strictEqual(initialCodex?.status, "error");
-            assert.strictEqual(initialCodex?.installed, false);
-            assert.deepStrictEqual(spawnedCommands, [firstMissing]);
-
-            const pendingRebuild = yield* Stream.toPull(
-              codexSnapshots.pipe(
-                Stream.filter((provider) => provider.status === "warning" && !provider.installed),
-              ),
-            );
-            yield* serverSettings.updateSettings({
+    it.effect("re-probes when settings change the codex binaryPath", () =>
+      Effect.gen(function* () {
+        const firstMissing = `t3code_codex_first_`;
+        const secondMissing = `t3code_codex_second_`;
+        const spawnedCommands: Array<string> = [];
+        const secondProbeStarted = yield* Deferred.make<void>();
+        const releaseSecondProbe = yield* Deferred.make<void>();
+        const allowLazySettingsStream = yield* Deferred.make<void>();
+        const mutableServerSettings = yield* makeMutableServerSettingsService(
+          decodeServerSettings(
+            deepMerge(encodedDefaultServerSettings, {
               providerInstances: {
                 ...disabledDefaultSlots("claudeAgent", "cursor", "grok", "opencode"),
                 [ProviderInstanceId.make("codex")]: {
                   driver: ProviderDriverKind.make("codex"),
                   enabled: true,
-                  config: { binaryPath: secondMissing },
+                  config: { binaryPath: firstMissing },
                 },
               },
-            });
-            yield* Deferred.succeed(allowLazySettingsStream, undefined);
+            }),
+          ),
+        );
+        const serverSettings = {
+          ...mutableServerSettings,
+          streamChanges: Stream.unwrap(
+            Deferred.await(allowLazySettingsStream).pipe(
+              Effect.as(mutableServerSettings.streamChanges),
+            ),
+          ),
+        } satisfies ServerSettingsModule.ServerSettingsService["Service"];
+        const scope = yield* Scope.make();
+        yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void));
+        const layerProviderRegistry = ProviderRegistry.layer.pipe(
+          Layer.provideMerge(
+            ProviderInstanceRegistryHydration.layer.pipe(
+              Layer.provide(
+                Layer.mergeAll(
+                  PortScanner.layerTest,
+                  ProviderInstallationGate.layer,
+                  SqlitePersistence.layerMemory,
+                ),
+              ),
+            ),
+          ),
+          Layer.provideMerge(AntigravityInstallation.AntigravityInstallation.layer),
+          Layer.provideMerge(
+            Layer.succeed(ServerSettingsModule.ServerSettingsService, serverSettings),
+          ),
+          Layer.provideMerge(ServerSecretStore.layer),
+          Layer.provideMerge(
+            ServerConfig.layerTest(process.cwd(), {
+              prefix: "t3-provider-registry-",
+            }),
+          ),
+          Layer.provideMerge(layerTestHttpClient),
+          Layer.provideMerge(
+            Layer.succeed(
+              ProviderEventLoggers.ProviderEventLoggers,
+              ProviderEventLoggers.NoOpProviderEventLoggers,
+            ),
+          ),
+          Layer.provideMerge(ProviderLatestVersions.layer),
+          Layer.provideMerge(McpProviderSessions.layer),
+          Layer.provideMerge(ModelManifest.layerTest),
+          Layer.provideMerge(ResetCreditCoordinator.layerTest),
+          Layer.provideMerge(
+            OpenCodeRuntime.layer.pipe(Layer.provide(OpenCodeServerLedger.layerTest)),
+          ),
+          Layer.updateService(ChildProcessSpawner.ChildProcessSpawner, (spawner) =>
+            ChildProcessSpawner.make((command) => {
+              if (command._tag !== "StandardCommand") return spawner.spawn(command);
+              spawnedCommands.push(command.command);
+              const beforeSpawn =
+                command.command === secondMissing
+                  ? Deferred.succeed(secondProbeStarted, undefined).pipe(
+                      Effect.andThen(Deferred.await(releaseSecondProbe)),
+                    )
+                  : Effect.void;
+              return beforeSpawn.pipe(Effect.andThen(spawner.spawn(command)));
+            }),
+          ),
+          Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+          Layer.provideMerge(layerBackgroundPolicyAlwaysRun),
+        );
+        const runtimeServices = yield* Layer.build(layerProviderRegistry).pipe(
+          Scope.provide(scope),
+        );
 
-            yield* Deferred.await(secondProbeStarted);
-            yield* pendingRebuild;
-            const rebuiltError = yield* Stream.toPull(
-              codexSnapshots.pipe(Stream.filter((provider) => provider.status === "error")),
-            );
-            yield* Deferred.succeed(releaseSecondProbe, undefined);
-            const [reprobedCodex] = yield* rebuiltError;
-            assert.deepStrictEqual(spawnedCommands, [firstMissing, secondMissing]);
-            assert.strictEqual(reprobedCodex?.status, "error");
-            assert.strictEqual(reprobedCodex?.installed, false);
-          }).pipe(Effect.provide(runtimeServices));
-        }),
+        yield* Effect.gen(function* () {
+          const registry = yield* ProviderRegistry.ProviderRegistry;
+          const codexSnapshots = registry.streamChanges.pipe(
+            Stream.map((providers) =>
+              providers.find((provider) => provider.instanceId === "codex"),
+            ),
+            Stream.filter((provider): provider is ServerProvider => provider !== undefined),
+          );
+          // Collect from the start: a pull subscribes on its first read and can miss a change
+          // published just before it, which the slower probes on Windows make likely.
+          const seen = yield* Stream.toQueue(codexSnapshots, { capacity: "unbounded" });
+          const nextMatching = (matches: (provider: ServerProvider) => boolean) =>
+            Effect.gen(function* () {
+              while (true) {
+                const provider = yield* Queue.take(seen);
+                if (matches(provider)) return provider;
+              }
+            });
+          const currentCodex = (yield* registry.getProviders).find(
+            (provider) => provider.instanceId === "codex",
+          );
+          const initialCodex =
+            currentCodex?.status === "error"
+              ? currentCodex
+              : yield* nextMatching((provider) => provider.status === "error");
+          assert.strictEqual(initialCodex?.status, "error");
+          assert.strictEqual(initialCodex?.installed, false);
+          assert.deepStrictEqual(spawnedCommands, [firstMissing]);
+
+          yield* serverSettings.updateSettings({
+            providerInstances: {
+              ...disabledDefaultSlots("claudeAgent", "cursor", "grok", "opencode"),
+              [ProviderInstanceId.make("codex")]: {
+                driver: ProviderDriverKind.make("codex"),
+                enabled: true,
+                config: { binaryPath: secondMissing },
+              },
+            },
+          });
+          yield* Deferred.succeed(allowLazySettingsStream, undefined);
+
+          yield* Deferred.await(secondProbeStarted);
+          yield* nextMatching((provider) => provider.status === "warning" && !provider.installed);
+          yield* Deferred.succeed(releaseSecondProbe, undefined);
+          const reprobedCodex = yield* nextMatching((provider) => provider.status === "error");
+          assert.deepStrictEqual(spawnedCommands, [firstMissing, secondMissing]);
+          assert.strictEqual(reprobedCodex?.status, "error");
+          assert.strictEqual(reprobedCodex?.installed, false);
+        }).pipe(Effect.provide(runtimeServices));
+      }),
     );
 
     it.effect("includes unavailable instance snapshots in getProviders", () =>
