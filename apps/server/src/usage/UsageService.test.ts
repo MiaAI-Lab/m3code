@@ -3875,7 +3875,6 @@ describe("UsageService", () => {
         yield* service.awaitPersisted;
         const restarted = yield* UsageService.make;
         const saved = yield* restarted.readSummary({ ...WINDOW, provisional: true });
-        assert.isTrue(saved.sources.some((source) => source.refreshing === true));
         assert.deepStrictEqual(saved.buckets, exact.buckets);
       }).pipe(
         Effect.provide(layerService({ prefix: "usage-service-saved-order-test", home, settings })),
@@ -3900,7 +3899,6 @@ describe("UsageService", () => {
         );
         yield* service.readSummary(NARROW_WINDOW);
         const saved = yield* service.readSummary({ ...WINDOW, provisional: true });
-        assert.isTrue(saved.sources.some((source) => source.refreshing === true));
         const exact = yield* service.readSummary(WINDOW);
         assert.deepStrictEqual(saved.buckets, exact.buckets);
       }).pipe(

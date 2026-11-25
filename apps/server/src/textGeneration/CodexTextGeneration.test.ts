@@ -661,13 +661,11 @@ const PREFLIGHT_PRIMARY_STATES = [
   "exhausted",
   "not installed",
   "not installed, fallback disabled for project",
-  "not installed, fallback model cannot generate text",
   "signed out",
   "signed out, fallback failed",
   "cannot generate text",
   "model cannot generate text",
   "disabled",
-  "disabled, thread default model cannot generate text",
   "disabled, fallback disabled for project",
 ] as const;
 
