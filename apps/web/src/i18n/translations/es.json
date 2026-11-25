@@ -3214,10 +3214,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "en el ordenador que abrió esta página"
-      ],
+      "c": [" ", "en el ordenador que abrió esta página"],
       "i": 2,
       "t": "span"
     }
@@ -3229,10 +3226,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "· quien lo ejecute obtiene este acceso"
-      ],
+      "c": [" ", "· quien lo ejecute obtiene este acceso"],
       "i": 2,
       "t": "span"
     }
@@ -8595,7 +8589,10 @@
   "7a4464dfc6c856e5": "Borrar datos",
   "92da88ddc3c21020": "Gestores de issues",
   "58e0e226493150e7": "No se pudieron cargar los gestores de issues",
+  "8e4b3675eb651f34": "Introduce primero la URL de tu servidor de {tracker}.",
   "77cfcbde543df32d": "Mostrar u ocultar detalles de {tracker}",
+  "cd73c7a534a3401f": "URL del servidor",
+  "a5491a9e2294bd66": "URL base de tu instancia autoalojada de {tracker}.",
   "0083f65885c60156": "Desconectar {tracker}",
   "ed83b25c71c98a20": "Elige uno o más {scope}s de {tracker} para cada proyecto. Sus issues aparecen junto a las del repositorio, y los agentes crean issues nuevas en el primero, salvo que se les pida otro.",
   "19c2d5e81ff8f89a": "{scope} de {tracker} para {project}",
@@ -9292,7 +9289,6 @@
   "fbbed33c616ad4ab": "ID del agente en el registro",
   "ba081ed3a5ebe5d1": "Ejecutable alternativo",
   "4758ab4250306ea3": "Método de autenticación",
-  "cd73c7a534a3401f": "URL del servidor",
   "02c3ef111bc54c72": "Contraseña del servidor",
   "4e388dbb31065fa0": "Token de acceso",
   "8c8eda8bebd220d4": "Correo de la cuenta de Atlassian",

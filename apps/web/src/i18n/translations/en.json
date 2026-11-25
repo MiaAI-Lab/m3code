@@ -3216,10 +3216,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "on the computer that opened this page"
-      ]
+      "c": [" ", "on the computer that opened this page"]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3231,10 +3228,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "· whoever runs it gets this access"
-      ]
+      "c": [" ", "· whoever runs it gets this access"]
     }
   ],
   "c54cc9c75db9dc58": "Only approve a sign-in you just started.",
@@ -8604,7 +8598,10 @@
   "7a4464dfc6c856e5": "Clear data",
   "92da88ddc3c21020": "Issue trackers",
   "58e0e226493150e7": "Could not load issue trackers",
+  "8e4b3675eb651f34": "Enter your {tracker} server URL first.",
   "77cfcbde543df32d": "Toggle {tracker} details",
+  "cd73c7a534a3401f": "Server URL",
+  "a5491a9e2294bd66": "Base URL of your self-hosted {tracker} instance.",
   "0083f65885c60156": "Disconnect {tracker}",
   "ed83b25c71c98a20": "Pick one or more {tracker} {scope}s for each project. Their issues list beside the repository's own, and agents file new issues in the first one unless asked for another.",
   "19c2d5e81ff8f89a": "{tracker} {scope} for {project}",
@@ -9301,7 +9298,6 @@
   "fbbed33c616ad4ab": "Registry agent ID",
   "ba081ed3a5ebe5d1": "Executable override",
   "4758ab4250306ea3": "Authentication method",
-  "cd73c7a534a3401f": "Server URL",
   "02c3ef111bc54c72": "Server password",
   "4e388dbb31065fa0": "Access token",
   "8c8eda8bebd220d4": "Atlassian account email",

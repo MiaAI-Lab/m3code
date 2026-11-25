@@ -42,6 +42,7 @@ const workspaceFiles = [
   "packages/provider-noname/package.json",
   "packages/provider-opencode/package.json",
   "packages/issue-tracker-linear/package.json",
+  "packages/issue-tracker-vikunja/package.json",
   "packages/secret-provider-core/package.json",
   "packages/secret-provider-definitions/package.json",
   "packages/secret-provider-onepassword/package.json",
