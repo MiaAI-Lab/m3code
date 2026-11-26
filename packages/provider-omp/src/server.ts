@@ -20,6 +20,7 @@ export const OMP_FLAVOR: PiFlavor = {
   probeDirName: "omp-status-probe",
   defaultAgentDirSegments: [".omp", "agent"],
   usageProvider: "omp",
+  subagentToolName: "task",
 };
 
 const DEFAULT_OMP_SETTINGS = Schema.decodeSync(OmpSettings)({});

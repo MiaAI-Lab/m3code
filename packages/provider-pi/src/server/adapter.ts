@@ -209,6 +209,8 @@ export interface PiAdapterV2Options {
   readonly linkedToInferenceServer?: boolean;
   readonly driverKind?: ProviderDriverKind;
   readonly defaultBinary?: string;
+  /** Tool name projecting subagent cards; pi-subagents uses "subagent", OMP uses "task". */
+  readonly subagentToolName?: string;
   readonly continuationRequests?: {
     readonly offer: (
       request: ProviderContinuationRequests.ProviderContinuationRequest,
@@ -319,13 +321,6 @@ function piToolOutput(result: unknown, toolName: string): unknown {
     content,
     ...(structured === undefined ? {} : { structuredContent: structured }),
   };
-}
-
-function providerRef(
-  nativeId: string,
-  strength: "strong" | "weak" = "strong",
-): OrchestrationV2ProviderRef {
-  return { driver: PI_PROVIDER, nativeId, strength };
 }
 
 const PI_THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
@@ -477,6 +472,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
 ) {
   const PI_PROVIDER = options.driverKind ?? PI_DRIVER_KIND;
   const defaultBinary = options.defaultBinary ?? "pi";
+  const subagentToolName = options.subagentToolName ?? "subagent";
   const providerRef = (
     nativeId: string,
     strength: "strong" | "weak" = "strong",
@@ -653,12 +649,15 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
       const customAnswerFollowUps = new Map<string, string[]>();
       const sessionApprovals = new Set<string>();
       // Async pi-subagents runs launched in this session, by async id, until they settle.
+      // omp `task` runs are tracked by job id; `members` names the spawned subagents
+      // so `wait` results can settle them.
       const piAsyncRuns = new Map<
         string,
         {
           readonly turn: ActivePiTurn;
           readonly toolCallId: string;
           readonly emitted: Map<string, string>;
+          readonly members: Set<string>;
         }
       >();
       // The launch snapshot arrives before the tool result that names its run.
@@ -1536,8 +1535,13 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             ...(viewedImagePath === undefined ? {} : { viewedImagePath }),
           },
         });
-        if (toolName === "subagent") {
+        if (toolName === subagentToolName) {
           yield* emitSubagentTasks(turn, toolCallId, resultRecord, completed);
+        }
+        // omp settles background `task` runs through `wait` results; pi members
+        // arrive in the subagent-async widget instead.
+        if (toolName === "wait" && piAsyncRuns.size > 0) {
+          yield* settleOmpWaitResults(resultRecord);
         }
       });
 
@@ -1549,40 +1553,76 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
       ) {
         const details = recordField(resultRecord, "details");
         const results = recordField(details, "results");
-        if (!Array.isArray(results)) return;
         let emitted = false;
-        for (const [index, result] of results.entries()) {
-          const agent = recordString(result, "agent");
-          const task = recordString(result, "task");
-          if (agent === undefined || task === undefined) continue;
-          emitted = true;
-          const finished = completed || recordField(result, "finished") === true;
-          const stopReason = recordString(result, "stopReason");
-          const interrupted = finished && stopReason === "aborted";
-          const failed =
-            finished &&
-            !interrupted &&
-            ((recordNumber(result, "exitCode") ?? 0) !== 0 || stopReason === "error");
-          const outputText = piSubagentOutput(result);
-          yield* emitSubagent(turn, toolCallId, `${recordNumber(result, "step") ?? index}`, {
-            agent,
-            task,
-            model: recordString(result, "model") ?? null,
-            status: interrupted
-              ? "interrupted"
-              : failed
-                ? "failed"
-                : finished
-                  ? "completed"
-                  : "running",
-            progress: !finished && outputText.length > 0 ? outputText.slice(0, 200) : undefined,
-            result: finished && outputText.length > 0 ? outputText.slice(0, 10_000) : null,
-          });
+        if (Array.isArray(results)) {
+          for (const [index, result] of results.entries()) {
+            const agent = recordString(result, "agent");
+            const task = recordString(result, "assignment") ?? recordString(result, "task");
+            if (agent === undefined || task === undefined) continue;
+            emitted = true;
+            const finished = completed || recordField(result, "finished") === true;
+            const stopReason = recordString(result, "stopReason");
+            const interrupted = finished && stopReason === "aborted";
+            const failed =
+              finished &&
+              !interrupted &&
+              ((recordNumber(result, "exitCode") ?? 0) !== 0 || stopReason === "error");
+            const outputText = piSubagentOutput(result);
+            yield* emitSubagent(turn, toolCallId, `${recordNumber(result, "step") ?? index}`, {
+              agent,
+              task,
+              model: recordString(result, "model") ?? null,
+              status: interrupted
+                ? "interrupted"
+                : failed
+                  ? "failed"
+                  : finished
+                    ? "completed"
+                    : "running",
+              progress: !finished && outputText.length > 0 ? outputText.slice(0, 200) : undefined,
+              result: finished && outputText.length > 0 ? outputText.slice(0, 10_000) : null,
+            });
+          }
         }
-        // Async launches return no results; their members arrive in the subagent-async widget.
-        const asyncId = recordString(details, "asyncId");
-        if (!emitted && asyncId !== undefined && !piAsyncRuns.has(asyncId)) {
-          const tracked = { turn, toolCallId, emitted: new Map<string, string>() };
+        // omp streams running members through `progress[]` while `results[]` is still empty.
+        if (!emitted) {
+          const progress = recordField(details, "progress");
+          if (Array.isArray(progress)) {
+            for (const [index, entry] of progress.entries()) {
+              const agent = recordString(entry, "agent");
+              if (agent === undefined) continue;
+              emitted = true;
+              const status = recordString(entry, "status") ?? "running";
+              yield* emitSubagent(turn, toolCallId, recordString(entry, "id") ?? `${index}`, {
+                agent,
+                task: recordString(entry, "assignment") ?? recordString(entry, "task") ?? "",
+                model: null,
+                status:
+                  status === "completed"
+                    ? "completed"
+                    : status === "failed" || status === "error"
+                      ? "failed"
+                      : status === "aborted"
+                        ? "interrupted"
+                        : "running",
+                result: null,
+              });
+            }
+          }
+        }
+        // Async launches return no results; pi members arrive in the subagent-async
+        // widget, omp members in `wait` results. Track the run until it settles.
+        const asyncId =
+          recordString(details, "asyncId") ?? recordString(recordField(details, "async"), "jobId");
+        if (asyncId !== undefined && !piAsyncRuns.has(asyncId)) {
+          const progress = recordField(details, "progress");
+          const members = new Set(
+            (Array.isArray(progress) ? progress : []).flatMap((entry) => {
+              const id = recordString(entry, "id");
+              return id === undefined ? [] : [id];
+            }),
+          );
+          const tracked = { turn, toolCallId, emitted: new Map<string, string>(), members };
           piAsyncRuns.set(asyncId, tracked);
           // Keeps the run ingesting after the coordinator's turn ends, until the run settles.
           yield* emit({
@@ -1593,6 +1633,68 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           });
           const run = latestAsyncSnapshotRuns.find((run) => recordString(run, "id") === asyncId);
           if (run !== undefined) yield* updateAsyncRun(asyncId, tracked, run);
+        }
+      });
+
+      // omp delivers background `task` results through `wait` tool results as
+      // task-result blocks; settle the tracked run's members from them.
+      const settleOmpWaitResults = Effect.fnUntraced(function* (resultRecord: unknown) {
+        if (piAsyncRuns.size === 0) return;
+        const outputText = contentText(recordField(resultRecord, "content"));
+        if (outputText.length === 0) return;
+        const blockPattern =
+          /<task-result\s+id="([^"]*)"\s+agent="([^"]*)"\s+status="([^"]*)"(?:\s+duration="[^"]*")?>([\s\S]*?)<\/task-result>/g;
+        for (const match of outputText.matchAll(blockPattern)) {
+          const id = match[1];
+          const agent = match[2];
+          const status = match[3];
+          const body = match[4];
+          if (
+            id === undefined ||
+            agent === undefined ||
+            status === undefined ||
+            body === undefined
+          ) {
+            continue;
+          }
+          const trackedEntry = [...piAsyncRuns.entries()].find(([, tracked]) =>
+            tracked.members.has(id),
+          );
+          if (trackedEntry === undefined) continue;
+          const [runId, tracked] = trackedEntry;
+          const output = /<output>([\s\S]*?)<\/output>/.exec(body)?.[1]?.trim() ?? "";
+          const settled =
+            status === "completed"
+              ? "completed"
+              : status === "failed" || status === "error"
+                ? "failed"
+                : status === "aborted"
+                  ? "interrupted"
+                  : undefined;
+          if (settled === undefined) continue;
+          yield* emitSubagent(tracked.turn, tracked.toolCallId, id, {
+            agent,
+            task: "",
+            model: null,
+            status: settled,
+            result: output.length > 0 ? output.slice(0, 10_000) : null,
+          });
+          tracked.members.delete(id);
+          if (tracked.members.size === 0) {
+            piAsyncRuns.delete(runId);
+            const providerTurnId = tracked.turn.providerTurn.id;
+            const stillPending = [...piAsyncRuns.values()].some(
+              (other) => other.turn.providerTurn.id === providerTurnId,
+            );
+            if (!stillPending) {
+              yield* emit({
+                type: "background_work.updated",
+                driver: PI_PROVIDER,
+                providerTurnId,
+                pending: false,
+              });
+            }
+          }
         }
       });
 
@@ -4408,6 +4510,9 @@ function piSubagentOutput(result: unknown): string {
     const failure = recordString(result, "errorMessage") || recordString(result, "stderr");
     if (failure !== undefined && failure.length > 0) return failure;
   }
+  // omp `task` results carry the subagent's final output in `output`.
+  const output = recordString(result, "output");
+  if (output !== undefined && output.length > 0) return output;
   const messages = recordField(result, "messages");
   if (!Array.isArray(messages)) return "";
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -4613,6 +4718,9 @@ export function createPiAdapterV2Driver(options: {
           linkedToInferenceServer: input.inferenceServerId !== undefined,
           driverKind: flavor.driverKind,
           defaultBinary: flavor.binaryName,
+          ...(flavor.subagentToolName === undefined
+            ? {}
+            : { subagentToolName: flavor.subagentToolName }),
           continuationRequests,
         });
       },
