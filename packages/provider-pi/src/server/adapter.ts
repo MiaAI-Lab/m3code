@@ -2770,7 +2770,11 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             yield* emitExtensionError(event);
             return;
           }
-          case "agent_settled": {
+          case "agent_settled":
+          // OMP never emits Pi's `agent_settled`: its RPC ends a stretch of agent
+          // activity with one `session_settled` after `agent_end` (rpc-session-settle).
+          case "session_settled": {
+            if (event["type"] === "session_settled" && !ompTaskDetails) return;
             yield* dropUnsettledOmpRuns();
             if (turn?.interrupted === true) {
               if (state === null) return;
