@@ -172,11 +172,18 @@ export const make = Effect.gen(function* () {
       Option.orElse(() => environment.appImagePath),
       Option.getOrElse(() => process.execPath),
     );
+    // Unpackaged runs install no icon, so the dock reads the checkout's icon file directly.
+    const entryIconPath = environment.isPackaged
+      ? Option.some(iconPath)
+      : (yield* assets.iconPaths).png;
     const content = renderUrlHandlerDesktopEntry({
       displayName: environment.displayName,
       execTarget,
       scheme,
-      ...(environment.isPackaged ? { iconPath } : {}),
+      ...Option.match(entryIconPath, {
+        onNone: () => ({}),
+        onSome: (path) => ({ iconPath: path }),
+      }),
     });
     // Avoid truncating the pre-ready entry while the portal may be reading it.
     const existing = yield* fileSystem

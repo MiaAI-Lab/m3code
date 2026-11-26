@@ -375,12 +375,17 @@ describe("DesktopLinuxUrlHandler", () => {
           isPackaged: false,
           linuxDesktopEntryName: "com.t3tools.T3Code.Development.desktop",
         },
+        iconSource: "/home/alice/t3code/assets/prod/black-universal-1024.png",
       });
 
       assert.deepEqual(nonLinux.files, []);
       assert.equal(
         unpackaged.files[0]?.path,
         "/home/alice/.local/share/applications/com.t3tools.T3Code.Development.desktop",
+      );
+      assert.include(
+        unpackaged.files[0]?.content,
+        "Icon=/home/alice/t3code/assets/prod/black-universal-1024.png",
       );
       assert.deepEqual(unpackaged.commands, []);
     });
