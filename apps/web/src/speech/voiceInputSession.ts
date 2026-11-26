@@ -131,6 +131,7 @@ export class VoiceInputSession {
       | {
           readonly cleanup: SpeechPostProcessingOptions | null;
           readonly cleanupGrant: string | null;
+          readonly localTwoPhase: boolean;
           readonly cleanupPrepared: PreparedConnection | null;
         }
       | undefined;
@@ -145,7 +146,9 @@ export class VoiceInputSession {
         if (!context) throw new Error(m(msg("Voice input has no draft to record into.")));
         const settings = context.clientSettings;
         const cleanupGrant = context.cleanup ? readCleanupGrant() : null;
-        const cleanupEnabled = cleanupGrant !== null;
+        const localTwoPhase =
+          context.cleanup && !key.cloudProvider && settings.speechLocalTwoPhaseCleanup;
+        const cleanupEnabled = cleanupGrant !== null || localTwoPhase;
         const cue = cleanupEnabled && context.cleanupPrepared ? settings.speechCorrectionWord : "";
         const { speechCustomWords, speechHints } = resolveSpeechVocabulary({
           personal: settings.speechCustomWords,
@@ -154,6 +157,7 @@ export class VoiceInputSession {
         });
         recordingPreferences = {
           cleanupGrant,
+          localTwoPhase,
           cleanupPrepared: context.cleanupPrepared,
           cleanup: cleanupEnabled
             ? {
@@ -196,10 +200,12 @@ export class VoiceInputSession {
       options,
     ) => {
       const preferences = recordingPreferences;
+      const grantStillValid =
+        preferences?.localTwoPhase || preferences?.cleanupGrant === readCleanupGrant();
       if (
         !preferences?.cleanup ||
         !hasAudioConsent() ||
-        preferences.cleanupGrant !== readCleanupGrant() ||
+        !grantStillValid ||
         this.target?.ownerKey !== options.draft.ownerKey
       )
         return null;
@@ -213,7 +219,9 @@ export class VoiceInputSession {
           transcript,
           cleanupContext(options.draft),
           preferences.cleanup,
-          () => hasAudioConsent() && preferences.cleanupGrant === readCleanupGrant(),
+          () =>
+            hasAudioConsent() &&
+            (preferences.localTwoPhase || preferences.cleanupGrant === readCleanupGrant()),
         ),
         options,
       ).then((result) => result.text);

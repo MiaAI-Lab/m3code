@@ -267,7 +267,7 @@ export async function listNativeSpeechGpuDevices(moduleUrl?: string) {
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error("Speech device discovery timed out."));
-    }, 10_000);
+    }, 30_000);
     child.on("message", (devices: unknown) => {
       if (
         Array.isArray(devices) &&

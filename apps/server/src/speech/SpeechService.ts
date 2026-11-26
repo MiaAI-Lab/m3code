@@ -24,11 +24,13 @@ import * as Stream from "effect/Stream";
 
 import * as ServerSettings from "../serverSettings.ts";
 import {
+  applySpeechAliases,
   makeSpeechTextCorrector,
   normalizeSpeechCustomWords,
   speechRecognitionWords,
 } from "./customWords.ts";
 import { removeSpeechFillerWords } from "./fillerWords.ts";
+import { parseLocalSpeechEndpoint, transcribeWithLocalEndpoint } from "./localEndpoint.ts";
 import {
   DEFAULT_SPEECH_MODEL_ID,
   effectiveSpeechLanguage,
@@ -458,6 +460,29 @@ const make = Effect.gen(function* () {
   const currentStatus = Effect.fn("SpeechService.currentStatus")(function* (
     settings: SettingsSnapshot,
   ): Effect.fn.Return<EnvironmentSpeechStatus> {
+    const localEndpoint = parseLocalSpeechEndpoint(
+      settings.speechLocalEndpointUrl,
+      settings.speechLocalEndpointModel,
+    );
+    if (localEndpoint) {
+      return {
+        supported: true,
+        state: activeTranscriptions > 0 ? "transcribing" : "ready",
+        modelId: localEndpoint.model,
+        model: `Local STT (${localEndpoint.model})`,
+        size: 0,
+        supportsStreaming: true,
+        supportsBufferedStreaming: true,
+        supportsModelLinking: !unsupportedReason,
+        supportsTranslation: false,
+        languages: ["en"],
+        supportsLanguageDetection: true,
+        acceleration: settings.speechAcceleration,
+        benchmarkTier: "accelerated",
+        modelUnloadTimeout: settings.speechModelUnloadTimeout,
+        gpuDevices: [],
+      };
+    }
     if (unsupportedReason) return { supported: false, reason: unsupportedReason };
     const definition = selectedModel(settings);
     const ready = yield* store.isReady(definition);
@@ -560,8 +585,13 @@ const make = Effect.gen(function* () {
   };
 
   const prepareModel = readSettings("model preparation").pipe(
-    Effect.flatMap((settings) =>
-      exclusive(
+    Effect.flatMap((settings) => {
+      if (
+        parseLocalSpeechEndpoint(settings.speechLocalEndpointUrl, settings.speechLocalEndpointModel)
+      ) {
+        return Effect.void;
+      }
+      return exclusive(
         "model preparation",
         requireSupported.pipe(
           Effect.andThen(installedModelPath(selectedModel(settings))),
@@ -582,8 +612,8 @@ const make = Effect.gen(function* () {
             ),
           ),
         ),
-      ),
-    ),
+      );
+    }),
   );
 
   const silenceModelPath = Effect.fn("SpeechService.silenceModelPath")(function* (
@@ -599,16 +629,46 @@ const make = Effect.gen(function* () {
   const transcribe: SpeechService["Service"]["transcribe"] = Effect.fn("SpeechService.transcribe")(
     function* (pcmBytes, options) {
       const settings = yield* readSettings("transcription");
+      const localEndpoint = parseLocalSpeechEndpoint(
+        settings.speechLocalEndpointUrl,
+        settings.speechLocalEndpointModel,
+      );
       return yield* exclusive(
         "transcription",
         Effect.gen(function* () {
-          yield* requireSupported;
+          if (!localEndpoint) yield* requireSupported;
           const pcm = yield* Effect.try({
             try: () => decodeSpeechPcm(pcmBytes),
             catch: (cause) => speechError("transcription", cause),
           });
           if (pcm.length === 0) return "";
           activeTranscriptions += 1;
+          if (localEndpoint) {
+            return yield* Effect.tryPromise({
+              try: (signal) =>
+                transcribeWithLocalEndpoint(
+                  localEndpoint,
+                  pcm,
+                  options,
+                  AbortSignal.any([signal, lifetime.signal]),
+                ),
+              catch: (cause) => speechError("local endpoint transcription", cause),
+            }).pipe(
+              Effect.map((raw) => {
+                const corrected = applySpeechAliases(raw, options.speechCustomWords);
+                return finalizeTranscript(
+                  corrected,
+                  options,
+                  options.speechLanguage === "auto" ? undefined : options.speechLanguage,
+                );
+              }),
+              Effect.ensuring(
+                Effect.sync(() => {
+                  activeTranscriptions -= 1;
+                }),
+              ),
+            );
+          }
           return yield* Effect.gen(function* () {
             const definition = selectedModel(settings);
             const language = effectiveSpeechLanguage(definition, options.speechLanguage);
@@ -707,6 +767,101 @@ const make = Effect.gen(function* () {
   // Stream setup shares the public startStream span.
   const openStream = Effect.fnUntraced(function* (options: SpeechTranscriptionOptions) {
     const operation = "streaming transcription";
+    const initialSettings = yield* readSettings(operation);
+    const localEndpoint = parseLocalSpeechEndpoint(
+      initialSettings.speechLocalEndpointUrl,
+      initialSettings.speechLocalEndpointModel,
+    );
+    if (localEndpoint) {
+      const released = Promise.withResolvers<void>();
+      // @effect-diagnostics-next-line abortControllerInEffect:off - Stream cancellation must abort in-flight HTTP fetch independently of the caller fiber.
+      const controller = new AbortController();
+      const signal = AbortSignal.any([controller.signal, lifetime.signal]);
+      const chunks: Float32Array[] = [];
+      let totalSamples = 0;
+      let totalBytes = 0;
+      let lastPreviewSamples = 0;
+      let latestPreview: string | null = null;
+      let previewInFlight = false;
+      let revision = 0;
+      let closed = false;
+      const combineChunks = () => {
+        const combined = new Float32Array(totalSamples);
+        let offset = 0;
+        for (const chunk of chunks) {
+          combined.set(chunk, offset);
+          offset += chunk.length;
+        }
+        return combined;
+      };
+      yield* Effect.acquireRelease(
+        Effect.suspend(() => {
+          if (closing || operationBusy()) return Effect.fail(new SpeechBusyError({ operation }));
+          activeOperation = released.promise;
+          activeTranscriptions += 1;
+          return Effect.void;
+        }),
+        () =>
+          Effect.sync(() => {
+            closed = true;
+            controller.abort();
+            activeTranscriptions -= 1;
+            if (activeOperation === released.promise) activeOperation = undefined;
+            released.resolve();
+          }),
+      );
+      return {
+        feed: (bytes: Uint8Array) =>
+          attempt(operation, async () => {
+            if (closed || signal.aborted) throw new Error("Speech stream is closed.");
+            if (
+              bytes.byteLength > SPEECH_STREAM_MAX_CHUNK_BYTES ||
+              totalBytes + bytes.byteLength > MAX_SPEECH_BYTES
+            ) {
+              throw new SpeechInvalidAudioError({
+                byteLength: bytes.byteLength,
+                message: "Speech stream audio limit exceeded.",
+              });
+            }
+            const pcm = decodeSpeechPcm(bytes);
+            chunks.push(pcm);
+            totalSamples += pcm.length;
+            totalBytes += bytes.byteLength;
+            revision += 1;
+            // Phase 1 live preview: refresh interim text roughly every 1.5s of new audio.
+            if (!previewInFlight && totalSamples - lastPreviewSamples >= 24_000) {
+              previewInFlight = true;
+              lastPreviewSamples = totalSamples;
+              const snapshot = combineChunks();
+              void transcribeWithLocalEndpoint(localEndpoint, snapshot, options, signal)
+                .then((raw) => {
+                  if (closed || signal.aborted) return;
+                  const corrected = applySpeechAliases(raw, options.speechCustomWords).trim();
+                  if (corrected) latestPreview = corrected;
+                })
+                .catch(() => undefined)
+                .finally(() => {
+                  previewInFlight = false;
+                });
+            }
+            return {
+              revision,
+              text: latestPreview ? { committed: "", tentative: latestPreview } : null,
+            };
+          }),
+        finish: attempt(operation, async () => {
+          if (totalSamples === 0) return "";
+          const combined = combineChunks();
+          const raw = await transcribeWithLocalEndpoint(localEndpoint, combined, options, signal);
+          const corrected = applySpeechAliases(raw, options.speechCustomWords);
+          return finalizeTranscript(
+            corrected,
+            options,
+            options.speechLanguage === "auto" ? undefined : options.speechLanguage,
+          );
+        }),
+      };
+    }
     yield* requireSupported;
     const released = Promise.withResolvers<void>();
     // @effect-diagnostics-next-line abortControllerInEffect:off - Stream cancellation must abort native work independently of the caller fiber.
