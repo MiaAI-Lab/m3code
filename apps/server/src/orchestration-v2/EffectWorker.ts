@@ -1,4 +1,4 @@
-import { CommandId, type RunId } from "@t3tools/contracts";
+import { CommandId, type ThreadId, type RunId } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -25,6 +25,7 @@ import * as ThreadTitleRegenerationService from "./ThreadTitleRegenerationServic
 import * as ThreadManagementService from "./ThreadManagementService.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { continueRestartedRun } from "./RestartContinuation.ts";
+import type * as Orchestrator from "./Orchestrator.ts";
 
 const isProviderTurnControlError = Schema.is(ProviderTurnControlService.ProviderTurnControlError);
 
@@ -38,6 +39,7 @@ export class OrchestrationEffectExecutionError extends Schema.TaggedError<Orches
 ) {}
 
 const isOrchestrationEffectExecutionError = Schema.is(OrchestrationEffectExecutionError);
+
 
 /**
  * Do not apply this to `provider-turn.restart`: that compound effect also runs
@@ -147,6 +149,33 @@ export const layerExecutor: Layer.Layer<
             ),
         ),
       );
+    // A queue held by a provider failure gets `queue-hold.retry` effects on the
+    // QUEUE_HOLD_RETRY_DELAYS_MS ladder (enqueued at the hold site in the orchestrator). Each
+    // retry clears the holds the way a user's Resume does and starts the queue again; the
+    // next failure re-holds and, past the ladder, waits for a person.
+    const retryHeldQueueStart = (input: {
+      readonly threadId: ThreadId;
+      readonly attempt: number;
+      readonly failedRunId: RunId | undefined;
+    }) =>
+      projectionStore.getHeldQueuedRuns(input.threadId).pipe(
+        Effect.flatMap((held) =>
+          held.length > 0
+            ? threads.dispatch({
+                type: "queue.resume" as const,
+                commandId: CommandId.make(
+                  `command:system:queue-hold-retry:${input.threadId}:${input.attempt}`,
+                ),
+                threadId: input.threadId,
+              })
+            : // The hold released while this retry waited: a user's Resume or a newer run got
+              // there first, so there is nothing left to resume and the retry is a no-op.
+              Effect.succeed<Orchestrator.OrchestratorV2DispatchResult>({
+                sequence: 0,
+                storedEvents: [],
+              }),
+        ),
+      );
     return OrchestrationEffectExecutorV2.of({
       execute: Effect.fn("OrchestrationEffectExecutorV2.execute")(function (effect, options) {
         const willRetry = options?.willRetry ?? false;
@@ -231,6 +260,21 @@ export const layerExecutor: Layer.Layer<
               );
           case "provider-turn.start":
             return startRun(effect, effect.request.runId, willRetry).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new OrchestrationEffectExecutionError({
+                    effectId: effect.id,
+                    effectType: effect.request.type,
+                    cause,
+                  }),
+              ),
+            );
+          case "queue-hold.retry":
+            return retryHeldQueueStart({
+              threadId: effect.threadId,
+              attempt: effect.request.attempt,
+              failedRunId: effect.request.failedRunId,
+            }).pipe(
               Effect.mapError(
                 (cause) =>
                   new OrchestrationEffectExecutionError({

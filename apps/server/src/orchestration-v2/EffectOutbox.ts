@@ -41,6 +41,11 @@ export const OrchestrationEffectRequestV2 = Schema.Union([
     cause: Schema.optional(Schema.Literal("provider_exit")),
   }),
   Schema.Struct({
+    type: Schema.Literal("queue-hold.retry"),
+    attempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
+    failedRunId: Schema.optional(RunId),
+  }),
+  Schema.Struct({
     type: Schema.Literal("provider-session.detach"),
     providerSessionId: ProviderSessionId,
     detail: Schema.optional(Schema.String),
@@ -146,6 +151,7 @@ export const REPLAY_SAFE_EFFECT_TYPES_AFTER_PROCESS_LOSS = [
   "provider-session.detach",
   "provider-thread.rollback",
   "checkpoint.capture",
+  "queue-hold.retry",
   "scheduled-tasks.cleanup",
   "terminal.cleanup",
   "preview.cleanup",

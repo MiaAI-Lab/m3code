@@ -171,6 +171,11 @@ import {
   type GuestShareCommand,
 } from "./GuestShareDecider.ts";
 import * as EffectOutbox from "./EffectOutbox.ts";
+import {
+  QUEUE_HOLD_RETRY_DELAYS_MS,
+  queueHoldRetryEffect,
+  queueHoldRetryEffectId,
+} from "./QueueHoldResume.ts";
 import type { OrchestrationEffectRequestV2, PendingOrchestrationEffectV2 } from "./EffectOutbox.ts";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ThreadCommandExecutor from "./ThreadCommandExecutor.ts";
@@ -2669,6 +2674,46 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
                 );
               });
         const now = yield* DateTime.now;
+        // A hold the provider caused gets its own retries before it waits for a person: a
+        // transient provider error holds a queue that would start fine 30 seconds later. The
+        // attempt count reads the deterministic effect ids, so a re-hold after a failed retry
+        // climbs the ladder instead of restarting it; past the ladder the hold is a person's.
+        const rootFailure =
+          failedRun && failedRunId !== undefined && failedRun.id === failedRunId
+            ? latestRootProviderFailure(failedRun, projection.turnItems)
+            : null;
+        let holdRetries: number | undefined;
+        if (providerFailed) {
+          holdRetries = QUEUE_HOLD_RETRY_DELAYS_MS.length + 1;
+          for (let attempt = 1; attempt <= QUEUE_HOLD_RETRY_DELAYS_MS.length; attempt++) {
+            const existing = yield* effectOutbox.get(queueHoldRetryEffectId(threadId, attempt));
+            if (Option.isNone(existing)) {
+              holdRetries = attempt;
+              break;
+            }
+          }
+        }
+        const holdRetryEffect =
+          providerFailed &&
+          rootFailure !== null &&
+          rootFailure.retryable !== false &&
+          (rootFailure.class === "provider_error" ||
+            rootFailure.class === "transport_error" ||
+            rootFailure.class === "unknown") &&
+          holdRetries !== undefined &&
+          holdRetries <= QUEUE_HOLD_RETRY_DELAYS_MS.length
+            ? [
+                queueHoldRetryEffect({
+                  threadId,
+                  failedRunId,
+                  attempt: holdRetries,
+                  now,
+                  commandId: CommandId.make(
+                    `command:system:queue-hold-retry:${threadId}:${holdRetries}`,
+                  ),
+                }),
+              ]
+            : [];
         yield* writeSystemEvents(
           projection.runs
             .filter((run) => run.status === "queued" && !wakes.some((wake) => wake.id === run.id))
@@ -2680,6 +2725,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
               occurredAt: now,
               payload: { ...run, queueHeld: true },
             })),
+          holdRetryEffect,
         );
         return wakes.length > 0;
       }
