@@ -3935,10 +3935,13 @@ describe("PiAdapterV2", () => {
       const doneCard = yield* takeEvent(
         (event) => event.type === "subagent.updated" && event.subagent.status === "completed",
       );
+      const runningId = running.type === "subagent.updated" ? running.subagent.id : null;
       assert.isTrue(
         doneCard.type === "subagent.updated" &&
           doneCard.subagent.title === "sonic" &&
-          doneCard.subagent.result === "Created gamma.txt.",
+          doneCard.subagent.result === "Created gamma.txt." &&
+          runningId !== null &&
+          doneCard.subagent.id === runningId,
       );
     }).pipe(Effect.scoped, Effect.provide(layerTest)),
   );
@@ -4088,6 +4091,349 @@ describe("PiAdapterV2", () => {
           doneCard.subagent.title === "sonic" &&
           doneCard.subagent.result === "Created gamma.txt with GAMMA.",
       );
+      const settledSignal = yield* takeEvent(
+        (event) => event.type === "background_work.updated" && !event.pending,
+      );
+      assert.isTrue(settledSignal.type === "background_work.updated");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("ends OMP progress cards as failed when an errored task leaves no results", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      const progressDetails = {
+        projectAgentsDir: null,
+        results: [],
+        totalDurationMs: 89,
+        progress: [
+          {
+            index: 0,
+            id: "WriteGamma",
+            agent: "sonic",
+            agentSource: "bundled",
+            status: "running",
+            task: "Complete assignment thoroughly",
+            assignment: "# Target\nCreate gamma.txt",
+          },
+        ],
+      };
+      yield* fake.emit({
+        type: "tool_execution_update",
+        toolCallId: "call_omp_abort",
+        toolName: "task",
+        partialResult: {
+          content: [{ type: "text", text: "Running agent WriteGamma..." }],
+          details: progressDetails,
+        },
+      });
+      yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "running",
+      );
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_abort",
+        toolName: "task",
+        isError: true,
+        result: {
+          content: [{ type: "text", text: "task failed" }],
+          details: progressDetails,
+        },
+      });
+      const endedCard = yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "failed",
+      );
+      assert.isTrue(endedCard.type === "subagent.updated" && endedCard.subagent.title === "sonic");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("settles an OMP background run that spawned without progress ids", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_solo",
+        toolName: "task",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "Spawned agent `SoloJob` (job `SoloJob`)." }],
+          details: {
+            projectAgentsDir: null,
+            results: [],
+            totalDurationMs: 2,
+            progress: [
+              {
+                index: 0,
+                agent: "sonic",
+                agentSource: "bundled",
+                status: "pending",
+                task: "Complete assignment thoroughly",
+                assignment: "# Target\nWrite GAMMA",
+              },
+            ],
+            async: { state: "running", jobId: "SoloJob", type: "task" },
+          },
+        },
+      });
+      yield* takeEvent((event) => event.type === "background_work.updated");
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_wait",
+        toolName: "wait",
+        isError: false,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: '<task-result id="SoloJob" agent="sonic" status="completed" duration="2.7s">\n\n<output>\nDone.\n</output>\n</task-result>',
+            },
+          ],
+          details: {},
+        },
+      });
+      const doneCard = yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "completed",
+      );
+      assert.isTrue(doneCard.type === "subagent.updated" && doneCard.subagent.result === "Done.");
+      const settledSignal = yield* takeEvent(
+        (event) => event.type === "background_work.updated" && !event.pending,
+      );
+      assert.isTrue(settledSignal.type === "background_work.updated");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("settles OMP runs reported with non-terminal task-result statuses", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_cancel",
+        toolName: "task",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "Spawned agent `GammaWriter` (job `GammaWriter`)." }],
+          details: {
+            projectAgentsDir: null,
+            results: [],
+            totalDurationMs: 2,
+            progress: [
+              {
+                index: 0,
+                id: "GammaWriter",
+                agent: "sonic",
+                agentSource: "bundled",
+                status: "pending",
+                task: "Complete assignment thoroughly",
+                assignment: "# Target\nWrite GAMMA",
+              },
+            ],
+            async: { state: "running", jobId: "GammaWriter", type: "task" },
+          },
+        },
+      });
+      yield* takeEvent((event) => event.type === "background_work.updated");
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_wait",
+        toolName: "wait",
+        isError: false,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: '<task-result id="GammaWriter" agent="sonic" status="cancelled" duration="1.0s"></task-result>',
+            },
+          ],
+          details: {},
+        },
+      });
+      const interruptedCard = yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "interrupted",
+      );
+      assert.isTrue(interruptedCard.type === "subagent.updated");
+      const settledSignal = yield* takeEvent(
+        (event) => event.type === "background_work.updated" && !event.pending,
+      );
+      assert.isTrue(settledSignal.type === "background_work.updated");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("parses OMP task-result blocks regardless of attribute order", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_order",
+        toolName: "task",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "Spawned agent `GammaWriter` (job `GammaWriter`)." }],
+          details: {
+            projectAgentsDir: null,
+            results: [],
+            totalDurationMs: 2,
+            progress: [
+              {
+                index: 0,
+                id: "GammaWriter",
+                agent: "sonic",
+                agentSource: "bundled",
+                status: "pending",
+                task: "Complete assignment thoroughly",
+                assignment: "# Target\nWrite GAMMA",
+              },
+            ],
+            async: { state: "running", jobId: "GammaWriter", type: "task" },
+          },
+        },
+      });
+      yield* takeEvent((event) => event.type === "background_work.updated");
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_wait",
+        toolName: "wait",
+        isError: false,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: '<task-result status="completed" duration="2.0s" agent="sonic" id="GammaWriter">\n\n<output>\nOK.\n</output>\n</task-result>',
+            },
+          ],
+          details: {},
+        },
+      });
+      const doneCard = yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "completed",
+      );
+      assert.isTrue(doneCard.type === "subagent.updated" && doneCard.subagent.result === "OK.");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("interrupts OMP runs still tracked when the agent settles without waiting", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_never",
+        toolName: "task",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "Spawned agent `GammaWriter` (job `GammaWriter`)." }],
+          details: {
+            projectAgentsDir: null,
+            results: [],
+            totalDurationMs: 2,
+            progress: [
+              {
+                index: 0,
+                id: "GammaWriter",
+                agent: "sonic",
+                agentSource: "bundled",
+                status: "pending",
+                task: "Complete assignment thoroughly",
+                assignment: "# Target\nWrite GAMMA",
+              },
+            ],
+            async: { state: "running", jobId: "GammaWriter", type: "task" },
+          },
+        },
+      });
+      yield* takeEvent((event) => event.type === "background_work.updated");
+      yield* fake.emit({ type: "agent_settled" });
+      const interruptedCard = yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "interrupted",
+      );
+      assert.isTrue(interruptedCard.type === "subagent.updated");
       const settledSignal = yield* takeEvent(
         (event) => event.type === "background_work.updated" && !event.pending,
       );

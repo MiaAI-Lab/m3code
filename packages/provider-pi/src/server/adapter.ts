@@ -473,6 +473,10 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
   const PI_PROVIDER = options.driverKind ?? PI_DRIVER_KIND;
   const defaultBinary = options.defaultBinary ?? "pi";
   const subagentToolName = options.subagentToolName ?? "subagent";
+  // OMP's `task` tool ships OMP-shaped details: progress[] updates, output results,
+  // async.jobId background runs, and settled results delivered through `wait`.
+  // pi-subagents ships results[] and settles through the subagent-async widget.
+  const ompTaskDetails = subagentToolName !== "subagent";
   const providerRef = (
     nativeId: string,
     strength: "strong" | "weak" = "strong",
@@ -649,15 +653,16 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
       const customAnswerFollowUps = new Map<string, string[]>();
       const sessionApprovals = new Set<string>();
       // Async pi-subagents runs launched in this session, by async id, until they settle.
-      // omp `task` runs are tracked by job id; `members` names the spawned subagents
-      // so `wait` results can settle them.
+      // omp `task` runs are tracked by job id; `members` maps spawned subagent id ->
+      // agent label so `wait` results (and run teardown) can settle them.
       const piAsyncRuns = new Map<
         string,
         {
           readonly turn: ActivePiTurn;
           readonly toolCallId: string;
           readonly emitted: Map<string, string>;
-          readonly members: Set<string>;
+          readonly members: Map<string, string>;
+          readonly omp: boolean;
         }
       >();
       // The launch snapshot arrives before the tool result that names its run.
@@ -1536,11 +1541,18 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           },
         });
         if (toolName === subagentToolName) {
-          yield* emitSubagentTasks(turn, toolCallId, resultRecord, completed);
+          yield* emitSubagentTasks(
+            turn,
+            toolCallId,
+            resultRecord,
+            completed,
+            isError,
+            ompTaskDetails,
+          );
         }
         // omp settles background `task` runs through `wait` results; pi members
         // arrive in the subagent-async widget instead.
-        if (toolName === "wait" && piAsyncRuns.size > 0) {
+        if (toolName === "wait" && ompTaskDetails && piAsyncRuns.size > 0) {
           yield* settleOmpWaitResults(resultRecord);
         }
       });
@@ -1550,6 +1562,8 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         toolCallId: string,
         resultRecord: unknown,
         completed: boolean,
+        isError: boolean,
+        ompTaskDetails: boolean,
       ) {
         const details = recordField(resultRecord, "details");
         const results = recordField(details, "results");
@@ -1557,7 +1571,9 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         if (Array.isArray(results)) {
           for (const [index, result] of results.entries()) {
             const agent = recordString(result, "agent");
-            const task = recordString(result, "assignment") ?? recordString(result, "task");
+            const task = ompTaskDetails
+              ? (recordString(result, "assignment") ?? recordString(result, "task"))
+              : recordString(result, "task");
             if (agent === undefined || task === undefined) continue;
             emitted = true;
             const finished = completed || recordField(result, "finished") === true;
@@ -1567,8 +1583,12 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
               finished &&
               !interrupted &&
               ((recordNumber(result, "exitCode") ?? 0) !== 0 || stopReason === "error");
-            const outputText = piSubagentOutput(result);
-            yield* emitSubagent(turn, toolCallId, `${recordNumber(result, "step") ?? index}`, {
+            const outputText = piSubagentOutput(result, ompTaskDetails);
+            // One member key across progress and results, so the running card is
+            // the card that completes. omp results carry id; pi results carry step.
+            const memberKey =
+              recordString(result, "id") ?? `${recordNumber(result, "step") ?? index}`;
+            yield* emitSubagent(turn, toolCallId, memberKey, {
               agent,
               task,
               model: recordString(result, "model") ?? null,
@@ -1584,29 +1604,41 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             });
           }
         }
-        // omp streams running members through `progress[]` while `results[]` is still empty.
-        if (!emitted) {
+        // omp streams running members through `progress[]` while `results[]` is
+        // still empty. pi-subagents has no progress[]; pi keeps main's behavior.
+        if (!emitted && ompTaskDetails) {
           const progress = recordField(details, "progress");
+          const asyncJobId = recordString(recordField(details, "async"), "jobId");
           if (Array.isArray(progress)) {
             for (const [index, entry] of progress.entries()) {
               const agent = recordString(entry, "agent");
               if (agent === undefined) continue;
               emitted = true;
               const status = recordString(entry, "status") ?? "running";
-              yield* emitSubagent(turn, toolCallId, recordString(entry, "id") ?? `${index}`, {
-                agent,
-                task: recordString(entry, "assignment") ?? recordString(entry, "task") ?? "",
-                model: null,
-                status:
-                  status === "completed"
-                    ? "completed"
-                    : status === "failed" || status === "error"
+              yield* emitSubagent(
+                turn,
+                toolCallId,
+                recordString(entry, "id") ?? asyncJobId ?? `${index}`,
+                {
+                  agent,
+                  task: recordString(entry, "assignment") ?? recordString(entry, "task") ?? "",
+                  model: null,
+                  // The tool ended without results: its members never ran to
+                  // completion, so non-terminal statuses end as interrupted/failed.
+                  status: completed
+                    ? isError
                       ? "failed"
-                      : status === "aborted"
-                        ? "interrupted"
-                        : "running",
-                result: null,
-              });
+                      : "interrupted"
+                    : status === "completed"
+                      ? "completed"
+                      : status === "failed" || status === "error"
+                        ? "failed"
+                        : status === "aborted"
+                          ? "interrupted"
+                          : "running",
+                  result: null,
+                },
+              );
             }
           }
         }
@@ -1614,15 +1646,25 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         // widget, omp members in `wait` results. Track the run until it settles.
         const asyncId =
           recordString(details, "asyncId") ?? recordString(recordField(details, "async"), "jobId");
-        if (asyncId !== undefined && !piAsyncRuns.has(asyncId)) {
+        if (asyncId !== undefined && !piAsyncRuns.has(asyncId) && (ompTaskDetails || !emitted)) {
           const progress = recordField(details, "progress");
-          const members = new Set(
-            (Array.isArray(progress) ? progress : []).flatMap((entry) => {
+          const members = new Map<string, string>();
+          if (ompTaskDetails) {
+            for (const entry of Array.isArray(progress) ? progress : []) {
               const id = recordString(entry, "id");
-              return id === undefined ? [] : [id];
-            }),
-          );
-          const tracked = { turn, toolCallId, emitted: new Map<string, string>(), members };
+              if (id === undefined) continue;
+              members.set(id, recordString(entry, "agent") ?? asyncId);
+            }
+            // A spawn without progress ids can only settle by its job id.
+            if (members.size === 0) members.set(asyncId, asyncId);
+          }
+          const tracked = {
+            turn,
+            toolCallId,
+            emitted: new Map<string, string>(),
+            members,
+            omp: ompTaskDetails,
+          };
           piAsyncRuns.set(asyncId, tracked);
           // Keeps the run ingesting after the coordinator's turn ends, until the run settles.
           yield* emit({
@@ -1642,36 +1684,33 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         if (piAsyncRuns.size === 0) return;
         const outputText = contentText(recordField(resultRecord, "content"));
         if (outputText.length === 0) return;
-        const blockPattern =
-          /<task-result\s+id="([^"]*)"\s+agent="([^"]*)"\s+status="([^"]*)"(?:\s+duration="[^"]*")?>([\s\S]*?)<\/task-result>/g;
+        const blockPattern = /<task-result\s+([^>]*)>([\s\S]*?)<\/task-result>/g;
         for (const match of outputText.matchAll(blockPattern)) {
-          const id = match[1];
-          const agent = match[2];
-          const status = match[3];
-          const body = match[4];
-          if (
-            id === undefined ||
-            agent === undefined ||
-            status === undefined ||
-            body === undefined
-          ) {
-            continue;
-          }
+          const attrs = match[1];
+          const body = match[2];
+          if (attrs === undefined || body === undefined) continue;
+          const attribute = (name: string) => {
+            const found = new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(attrs);
+            return found?.[1];
+          };
+          const id = attribute("id");
+          const agent = attribute("agent");
+          const status = attribute("status") ?? "";
+          if (id === undefined || agent === undefined) continue;
           const trackedEntry = [...piAsyncRuns.entries()].find(([, tracked]) =>
             tracked.members.has(id),
           );
           if (trackedEntry === undefined) continue;
           const [runId, tracked] = trackedEntry;
           const output = /<output>([\s\S]*?)<\/output>/.exec(body)?.[1]?.trim() ?? "";
+          // Every parsed block settles its member: completed/failed/error map to
+          // themselves; anything else (aborted, cancelled, timeout, …) to interrupted.
           const settled =
             status === "completed"
               ? "completed"
               : status === "failed" || status === "error"
                 ? "failed"
-                : status === "aborted"
-                  ? "interrupted"
-                  : undefined;
-          if (settled === undefined) continue;
+                : "interrupted";
           yield* emitSubagent(tracked.turn, tracked.toolCallId, id, {
             agent,
             task: "",
@@ -1682,19 +1721,44 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           tracked.members.delete(id);
           if (tracked.members.size === 0) {
             piAsyncRuns.delete(runId);
-            const providerTurnId = tracked.turn.providerTurn.id;
-            const stillPending = [...piAsyncRuns.values()].some(
-              (other) => other.turn.providerTurn.id === providerTurnId,
-            );
-            if (!stillPending) {
-              yield* emit({
-                type: "background_work.updated",
-                driver: PI_PROVIDER,
-                providerTurnId,
-                pending: false,
-              });
-            }
+            yield* clearPendingWhenTurnIdle(tracked);
           }
+        }
+      });
+
+      // omp runs never settled by a `wait` result (the agent settled or was
+      // stopped first): mark their members interrupted and release the turn.
+      const dropUnsettledOmpRuns = Effect.fnUntraced(function* () {
+        for (const [runId, tracked] of piAsyncRuns) {
+          if (!tracked.omp) continue;
+          piAsyncRuns.delete(runId);
+          for (const [id, agent] of tracked.members) {
+            yield* emitSubagent(tracked.turn, tracked.toolCallId, id, {
+              agent,
+              task: "",
+              model: null,
+              status: "interrupted",
+              result: null,
+            });
+          }
+          yield* clearPendingWhenTurnIdle(tracked);
+        }
+      });
+
+      const clearPendingWhenTurnIdle = Effect.fnUntraced(function* (tracked: {
+        readonly turn: ActivePiTurn;
+      }) {
+        const providerTurnId = tracked.turn.providerTurn.id;
+        const stillPending = [...piAsyncRuns.values()].some(
+          (other) => other.turn.providerTurn.id === providerTurnId,
+        );
+        if (!stillPending) {
+          yield* emit({
+            type: "background_work.updated",
+            driver: PI_PROVIDER,
+            providerTurnId,
+            pending: false,
+          });
         }
       });
 
@@ -2707,6 +2771,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             return;
           }
           case "agent_settled": {
+            yield* dropUnsettledOmpRuns();
             if (turn?.interrupted === true) {
               if (state === null) return;
               const liveState = yield* request({ type: "get_state" }, 2_000).pipe(
@@ -4500,7 +4565,7 @@ function piAsyncSubagentStatus(
   }
 }
 
-function piSubagentOutput(result: unknown): string {
+function piSubagentOutput(result: unknown, preferOutput = false): string {
   const stopReason = recordString(result, "stopReason");
   const failed =
     (recordNumber(result, "exitCode") ?? 0) !== 0 ||
@@ -4511,8 +4576,10 @@ function piSubagentOutput(result: unknown): string {
     if (failure !== undefined && failure.length > 0) return failure;
   }
   // omp `task` results carry the subagent's final output in `output`.
-  const output = recordString(result, "output");
-  if (output !== undefined && output.length > 0) return output;
+  if (preferOutput) {
+    const output = recordString(result, "output");
+    if (output !== undefined && output.length > 0) return output;
+  }
   const messages = recordField(result, "messages");
   if (!Array.isArray(messages)) return "";
   for (let index = messages.length - 1; index >= 0; index -= 1) {
