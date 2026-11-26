@@ -1,9 +1,11 @@
+import { AuthEnvironmentMaintainScope } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { handleM3PluginHttpRequest } from "../../../m3/plugin-host/server/httpHandler.ts";
 import { PluginHostManager } from "../../../m3/plugin-host/server/PluginHostManager.ts";
+import { authenticateMediaRequest } from "./auth/http.ts";
 import * as ServerConfig from "./config.ts";
 
 /**
@@ -16,6 +18,8 @@ export const routeLayer = Layer.unwrap(
     const manager = new PluginHostManager({ m3HomeDir: config.baseDir });
 
     const handler = Effect.fn("M3PluginRoute.handle")(function* () {
+      // Plugins install from git and run sidecar processes on the host, so they need admin rights.
+      yield* authenticateMediaRequest(AuthEnvironmentMaintainScope);
       const request = yield* HttpServerRequest.HttpServerRequest;
       const hasBody = request.method !== "GET" && request.method !== "HEAD";
       const rawBytes = hasBody
