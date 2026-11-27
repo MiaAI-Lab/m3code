@@ -4381,7 +4381,7 @@ describe("PiAdapterV2", () => {
     }).pipe(Effect.scoped, Effect.provide(layerTest)),
   );
 
-  it.effect("interrupts OMP runs still tracked when the agent settles without waiting", () =>
+  it.effect("settles an OMP background run from its async-result delivery", () =>
     Effect.gen(function* () {
       const fake = yield* makeFakePi;
       const { runtime, takeEvent } = yield* openRuntime(
@@ -4428,12 +4428,39 @@ describe("PiAdapterV2", () => {
           },
         },
       });
-      yield* takeEvent((event) => event.type === "background_work.updated");
-      yield* fake.emit({ type: "agent_settled" });
-      const interruptedCard = yield* takeEvent(
-        (event) => event.type === "subagent.updated" && event.subagent.status === "interrupted",
+      const spawnedCard = yield* takeEvent((event) => event.type === "subagent.updated");
+      const pendingSignal = yield* takeEvent(
+        (event) => event.type === "background_work.updated" && event.pending,
       );
-      assert.isTrue(interruptedCard.type === "subagent.updated");
+      assert.isTrue(pendingSignal.type === "background_work.updated");
+      // omp ends a stretch of agent activity with `agent_end` + `session_settled`
+      // while a background job can still finish: the run must survive it.
+      yield* fake.emit({ type: "agent_end", messages: [], willRetry: false });
+      yield* fake.emit({ type: "session_settled" });
+      // omp then delivers the finished job as an async-result custom message
+      // carrying the same <task-result> envelope a `wait` result returns.
+      yield* fake.emit({
+        type: "message_end",
+        message: {
+          role: "custom",
+          customType: "async-result",
+          content:
+            '<system-notice>\nBackground job GammaWriter has completed.\nResume your work using the result below.\n\n<task-result id="GammaWriter" agent="sonic" status="completed" duration="2.7s">\n\n<output>\nCreated gamma.txt with GAMMA.\n</output>\n</task-result>\n</system-notice>',
+        },
+      });
+      const settledCard = yield* takeEvent(
+        (event) =>
+          event.type === "subagent.updated" &&
+          (event.subagent.status === "completed" || event.subagent.status === "interrupted"),
+      );
+      const spawnedId = spawnedCard.type === "subagent.updated" ? spawnedCard.subagent.id : null;
+      assert.isTrue(
+        settledCard.type === "subagent.updated" &&
+          settledCard.subagent.status === "completed" &&
+          settledCard.subagent.result === "Created gamma.txt with GAMMA." &&
+          spawnedId !== null &&
+          settledCard.subagent.id === spawnedId,
+      );
       const settledSignal = yield* takeEvent(
         (event) => event.type === "background_work.updated" && !event.pending,
       );
@@ -4441,7 +4468,7 @@ describe("PiAdapterV2", () => {
     }).pipe(Effect.scoped, Effect.provide(layerTest)),
   );
 
-  it.effect("interrupts OMP runs still tracked when omp's session settles", () =>
+  it.effect("interrupts OMP runs still tracked when a stopped turn settles", () =>
     Effect.gen(function* () {
       const fake = yield* makeFakePi;
       const { runtime, takeEvent } = yield* openRuntime(
@@ -4461,6 +4488,8 @@ describe("PiAdapterV2", () => {
       });
       yield* startTurn(runtime, providerThread);
       yield* fake.takeRequest("prompt");
+      const started = yield* takeEvent((event) => event.type === "provider_turn.updated");
+      if (started.type !== "provider_turn.updated") return yield* Effect.die("Missing turn");
       yield* fake.emit({ type: "agent_start" });
       yield* fake.emit({
         type: "tool_execution_update",
@@ -4520,8 +4549,9 @@ describe("PiAdapterV2", () => {
         (event) => event.type === "background_work.updated" && event.pending,
       );
       assert.isTrue(pendingSignal.type === "background_work.updated");
-      // Frames as omp 19.2.0 ends a stretch of activity: `agent_end` per run, then one
-      // `session_settled`; it never emits Pi's `agent_settled`.
+      // Stop abandons the runs the stopped turn left behind: their cards cannot keep
+      // running, and omp settles the stopped stretch with `agent_end` + `session_settled`.
+      yield* runtime.interruptTurn({ providerThread, providerTurnId: started.providerTurn.id });
       yield* fake.emit({ type: "agent_end", messages: [], willRetry: false });
       yield* fake.emit({ type: "session_settled" });
       const interruptedCard = yield* takeEvent(
@@ -4533,6 +4563,232 @@ describe("PiAdapterV2", () => {
           runningId !== null &&
           interruptedCard.subagent.id === runningId,
       );
+      const settledSignal = yield* takeEvent(
+        (event) => event.type === "background_work.updated" && !event.pending,
+      );
+      assert.isTrue(settledSignal.type === "background_work.updated");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("settles an OMP background run from a wait in a later turn", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_later",
+        toolName: "task",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "Spawned agent `GammaWriter` (job `GammaWriter`)." }],
+          details: {
+            projectAgentsDir: null,
+            results: [],
+            totalDurationMs: 2,
+            progress: [
+              {
+                index: 0,
+                id: "GammaWriter",
+                agent: "sonic",
+                agentSource: "bundled",
+                status: "running",
+                task: "Complete assignment thoroughly",
+                assignment: "# Target\nWrite GAMMA",
+              },
+            ],
+            async: { state: "running", jobId: "GammaWriter", type: "task" },
+          },
+        },
+      });
+      const runningCard = yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "running",
+      );
+      yield* takeEvent((event) => event.type === "background_work.updated" && event.pending);
+      yield* fake.emit({ type: "agent_end", messages: [], willRetry: false });
+      yield* fake.emit({ type: "session_settled" });
+      const firstTurn = yield* takeEvent((event) => event.type === "turn.terminal");
+      assert.isTrue(firstTurn.type === "turn.terminal");
+      // The next turn waits for the job the first turn spawned; the run it needs to
+      // settle has to have survived omp's per-turn `session_settled`.
+      yield* startTurn(
+        runtime,
+        providerThread,
+        "default",
+        [],
+        "Wait for the subagent",
+        undefined,
+        2,
+      );
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_wait_later",
+        toolName: "wait",
+        isError: false,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: '## Completed (1)\n\n### GammaWriter [task] — completed\n```\n<task-result id="GammaWriter" agent="sonic" status="completed" duration="2.7s">\n\n<output>\nWrote GAMMA.\n</output>\n</task-result>\n```',
+            },
+          ],
+          details: {},
+        },
+      });
+      const settledCard = yield* takeEvent(
+        (event) =>
+          event.type === "subagent.updated" &&
+          (event.subagent.status === "completed" || event.subagent.status === "interrupted"),
+      );
+      const runningId = runningCard.type === "subagent.updated" ? runningCard.subagent.id : null;
+      assert.isTrue(
+        settledCard.type === "subagent.updated" &&
+          settledCard.subagent.status === "completed" &&
+          settledCard.subagent.result === "Wrote GAMMA." &&
+          runningId !== null &&
+          settledCard.subagent.id === runningId,
+      );
+      const settledSignal = yield* takeEvent(
+        (event) => event.type === "background_work.updated" && !event.pending,
+      );
+      assert.isTrue(settledSignal.type === "background_work.updated");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("settles the OMP turn when omp's session settles", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({ type: "agent_end", messages: [], willRetry: false });
+      yield* fake.emit({ type: "session_settled" });
+      const terminal = yield* takeEvent((event) => event.type === "turn.terminal");
+      assert.isTrue(terminal.type === "turn.terminal" && terminal.status === "completed");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("interrupts OMP runs when the stopped session closes", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      const started = yield* takeEvent((event) => event.type === "provider_turn.updated");
+      if (started.type !== "provider_turn.updated") return yield* Effect.die("Missing turn");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({
+        type: "tool_execution_update",
+        toolCallId: "call_omp_closed",
+        toolName: "task",
+        partialResult: {
+          content: [{ type: "text", text: "Running agent GammaWriter..." }],
+          details: {
+            projectAgentsDir: null,
+            results: [],
+            totalDurationMs: 89,
+            progress: [
+              {
+                index: 0,
+                id: "GammaWriter",
+                agent: "sonic",
+                agentSource: "bundled",
+                status: "running",
+                task: "Complete assignment thoroughly",
+                assignment: "# Target\nWrite GAMMA",
+              },
+            ],
+          },
+        },
+      });
+      yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "running",
+      );
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_closed",
+        toolName: "task",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "Spawned agent `GammaWriter` (job `GammaWriter`)." }],
+          details: {
+            projectAgentsDir: null,
+            results: [],
+            totalDurationMs: 2,
+            progress: [
+              {
+                index: 0,
+                id: "GammaWriter",
+                agent: "sonic",
+                agentSource: "bundled",
+                status: "running",
+                task: "Complete assignment thoroughly",
+                assignment: "# Target\nWrite GAMMA",
+              },
+            ],
+            async: { state: "running", jobId: "GammaWriter", type: "task" },
+          },
+        },
+      });
+      yield* takeEvent((event) => event.type === "background_work.updated" && event.pending);
+      // Stop on a paused/compaction turn terminates the session instead of aborting it;
+      // the tracked run goes with the process and must not stay pending.
+      yield* runtime.interruptTurn({
+        providerThread,
+        providerTurnId: started.providerTurn.id,
+        requestRuntimeRestart: true,
+      });
+      const interruptedCard = yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status === "interrupted",
+      );
+      assert.isTrue(interruptedCard.type === "subagent.updated");
       const settledSignal = yield* takeEvent(
         (event) => event.type === "background_work.updated" && !event.pending,
       );

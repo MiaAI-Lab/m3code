@@ -1553,7 +1553,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         // omp settles background `task` runs through `wait` results; pi members
         // arrive in the subagent-async widget instead.
         if (toolName === "wait" && ompTaskDetails && piAsyncRuns.size > 0) {
-          yield* settleOmpWaitResults(resultRecord);
+          yield* settleOmpTaskResults(contentText(recordField(resultRecord, "content")));
         }
       });
 
@@ -1567,6 +1567,10 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
       ) {
         const details = recordField(resultRecord, "details");
         const results = recordField(details, "results");
+        // A background spawn's task call ends while its job still runs: its progress
+        // rows are not abandoned by the tool ending, only by a job that never reports.
+        const asyncState = recordString(recordField(details, "async"), "state");
+        const runContinues = asyncState === "running" || asyncState === "pending";
         let emitted = false;
         if (Array.isArray(results)) {
           for (const [index, result] of results.entries()) {
@@ -1623,19 +1627,20 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
                   agent,
                   task: recordString(entry, "assignment") ?? recordString(entry, "task") ?? "",
                   model: null,
-                  // The tool ended without results: its members never ran to
-                  // completion, so non-terminal statuses end as interrupted/failed.
-                  status: completed
-                    ? isError
-                      ? "failed"
-                      : "interrupted"
-                    : status === "completed"
-                      ? "completed"
-                      : status === "failed" || status === "error"
+                  // A run that still reports progress keeps its status; one the tool
+                  // abandoned ends its non-terminal members as interrupted/failed.
+                  status:
+                    completed && !runContinues
+                      ? isError
                         ? "failed"
-                        : status === "aborted"
-                          ? "interrupted"
-                          : "running",
+                        : "interrupted"
+                      : status === "completed"
+                        ? "completed"
+                        : status === "failed" || status === "error"
+                          ? "failed"
+                          : status === "aborted"
+                            ? "interrupted"
+                            : "running",
                   result: null,
                 },
               );
@@ -1643,10 +1648,18 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           }
         }
         // Async launches return no results; pi members arrive in the subagent-async
-        // widget, omp members in `wait` results. Track the run until it settles.
+        // widget, omp members in `wait`/async-result blocks. Track until it settles.
         const asyncId =
           recordString(details, "asyncId") ?? recordString(recordField(details, "async"), "jobId");
-        if (asyncId !== undefined && !piAsyncRuns.has(asyncId) && (ompTaskDetails || !emitted)) {
+        // A spawn that already settled (a blocking spawn reports the finished job)
+        // has nothing to track: its members arrived in `results`.
+        const asyncSettled = asyncState !== undefined && !runContinues;
+        if (
+          asyncId !== undefined &&
+          !asyncSettled &&
+          !piAsyncRuns.has(asyncId) &&
+          (ompTaskDetails || !emitted)
+        ) {
           const progress = recordField(details, "progress");
           const members = new Map<string, string>();
           if (ompTaskDetails) {
@@ -1678,11 +1691,11 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         }
       });
 
-      // omp delivers background `task` results through `wait` tool results as
-      // task-result blocks; settle the tracked run's members from them.
-      const settleOmpWaitResults = Effect.fnUntraced(function* (resultRecord: unknown) {
+      // omp delivers background `task` results through `<task-result>` blocks: in
+      // `wait` tool results, and in the `async-result` follow-up message it records
+      // when a job finishes without a waiting agent. Both settle the tracked run.
+      const settleOmpTaskResults = Effect.fnUntraced(function* (outputText: string) {
         if (piAsyncRuns.size === 0) return;
-        const outputText = contentText(recordField(resultRecord, "content"));
         if (outputText.length === 0) return;
         const blockPattern = /<task-result\s+([^>]*)>([\s\S]*?)<\/task-result>/g;
         for (const match of outputText.matchAll(blockPattern)) {
@@ -2592,8 +2605,18 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             return;
           }
           case "message_end": {
-            if (turn === null) return;
             const message = event["message"];
+            // omp records a finished background job as an `async-result` custom
+            // message carrying the same `<task-result>` envelope a `wait` returns.
+            if (
+              ompTaskDetails &&
+              recordString(message, "role") === "custom" &&
+              recordString(message, "customType") === "async-result"
+            ) {
+              yield* settleOmpTaskResults(contentText(recordField(message, "content")));
+              return;
+            }
+            if (turn === null) return;
             if (recordString(message, "role") !== "assistant") return;
             yield* completeOpenStreamItems(turn);
             const reportedProvider = recordString(message, "provider");
@@ -2775,8 +2798,12 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           // activity with one `session_settled` after `agent_end` (rpc-session-settle).
           case "session_settled": {
             if (event["type"] === "session_settled" && !ompTaskDetails) return;
-            yield* dropUnsettledOmpRuns();
+            // A `session_settled` proves no run is live, not that a background job
+            // finished (omp excludes suppressed deliveries), so only a stopped turn
+            // abandons its runs. Live runs settle from their `wait`/async-result
+            // results; a closing session drops them in the transport handler.
             if (turn?.interrupted === true) {
+              yield* dropUnsettledOmpRuns();
               if (state === null) return;
               const liveState = yield* request({ type: "get_state" }, 2_000).pipe(
                 Effect.orElseSucceed(() => undefined),
@@ -3104,6 +3131,9 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
                   protocolError("Pi transport closed during rollback"),
                 );
               pendingWake = null;
+              // The process is gone along with every background job: settle the runs
+              // still tracked so their cards and `background_work` do not hang.
+              yield* dropUnsettledOmpRuns();
               const interrupted = state?.activeTurn?.interrupted === true;
               if (state?.activeTurn != null) {
                 state.activeTurn.failure = interrupted
