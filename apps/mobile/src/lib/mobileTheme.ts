@@ -3,7 +3,6 @@ import {
   T3_CHAT_THEME,
   T3_CODE_LIGHT_THEME_COLORS,
   T3_CODE_DARK_THEME_COLORS,
-  TECH_MOCA_THEME,
   getThemeColorsForAppearance,
   MOBILE_DEFAULT_THEME_ID,
   MOBILE_THEME_IDS as SHARED_MOBILE_THEME_IDS,
@@ -26,15 +25,16 @@ export type MobileThemeAppearance = ThemeAppearance;
 export type MobileThemeMode = MobileThemeAppearance | "system";
 export type MobileThemeIds = Readonly<Record<MobileThemeAppearance, MobileThemeId>>;
 
-export const MOBILE_THEME_OPTIONS: ReadonlyArray<{
-  readonly id: MobileThemeId;
-  readonly label: string;
-}> = [
-  { id: DEFAULT_MOBILE_THEME_SELECTION, label: TECH_MOCA_THEME.label },
-  { id: DEFAULT_MOBILE_THEME_ID, label: "M3 Code" },
-  { id: "material-you", label: "Material You" },
+/**
+ * Picker order for the theme list. Display names live in `ThemeAppearanceSection`'s `THEME_NAMES`
+ * so every name goes through the translation catalog instead of a second English copy here.
+ */
+export const MOBILE_THEME_OPTIONS: ReadonlyArray<{ readonly id: MobileThemeId }> = [
+  { id: DEFAULT_MOBILE_THEME_SELECTION },
+  { id: DEFAULT_MOBILE_THEME_ID },
+  { id: "material-you" },
   ...BUILT_IN_THEMES.filter((theme) => theme.id !== DEFAULT_MOBILE_THEME_SELECTION).map(
-    (theme) => ({ id: theme.id as MobileThemeId, label: theme.label }),
+    (theme) => ({ id: theme.id as MobileThemeId }),
   ),
 ];
 

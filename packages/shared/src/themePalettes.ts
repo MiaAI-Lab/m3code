@@ -244,7 +244,7 @@ export const T3_CODE_DARK_THEME_COLORS: ThemeColors = {
 
 export const T3_CHAT_THEME: ThemeDefinition = {
   id: "t3-chat",
-  label: "M3 Chat",
+  label: "Legacy Chat",
   appearance: "light",
   colors: {
     canvas: "oklch(0.982446 0.010114 325.653)",
@@ -925,7 +925,7 @@ export const IRIS_THEME: ThemeDefinition = {
  */
 export const TECH_MOCA_THEME: ThemeDefinition = {
   id: "tech-moca",
-  label: "Tech Moca",
+  label: "M3 Code",
   appearance: "dark",
   colors: {
     canvas: "#141414",

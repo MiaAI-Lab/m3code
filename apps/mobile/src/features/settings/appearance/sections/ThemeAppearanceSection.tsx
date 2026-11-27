@@ -22,19 +22,20 @@ import { cn } from "../../../../lib/cn";
 import { useAppearancePreferences } from "../AppearancePreferencesProvider";
 
 const THEME_NAMES: Readonly<Record<string, string>> = {
-  "tech-moca": msg("Tech Moca", { $context: "color theme name" }),
+  // The house theme took over the "M3 Code" name; the stock palettes keep their own names.
+  "tech-moca": msg("M3 Code", { $context: "color theme name" }),
+  "t3-code": msg("Old News", { $context: "color theme name" }),
+  "t3-chat": msg("Legacy Chat", { $context: "color theme name" }),
+  "material-you": msg("Materialistic", { $context: "color theme name" }),
   grove: msg("Grove", { $context: "color theme name" }),
   ocean: msg("Ocean", { $context: "color theme name" }),
   ember: msg("Ember", { $context: "color theme name" }),
   iris: msg("Iris", { $context: "color theme name" }),
 };
 
-function themeName(
-  theme: { readonly id: string; readonly label: string },
-  resolve: MessageResolver,
-) {
-  const name = THEME_NAMES[theme.id];
-  return name === undefined ? theme.label : resolve(name);
+function themeName(themeId: string, resolve: MessageResolver) {
+  const name = THEME_NAMES[themeId];
+  return name === undefined ? themeId : resolve(name);
 }
 
 const APPEARANCE_MODES: ReadonlyArray<{
@@ -353,7 +354,7 @@ export function ThemeAppearanceSection() {
             <ThemeCard
               disabled={!isReady}
               key={theme.id}
-              label={themeName(theme, m)}
+              label={themeName(theme.id, m)}
               darkSelected={theme.id === themeIds.dark}
               lightSelected={theme.id === themeIds.light}
               onSelect={(appearance) => setThemeIdForAppearance(appearance, theme.id)}
