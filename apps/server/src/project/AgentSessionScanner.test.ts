@@ -4,6 +4,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 import * as NodeSqlite from "node:sqlite";
 import * as NodeZlib from "node:zlib";
 import { describe, expect, it } from "@effect/vitest";
@@ -29,6 +30,7 @@ import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
@@ -89,13 +91,37 @@ const layerRuntimeRepository = (imported: ScannerTestInput["importedTranscripts"
       ),
   });
 
+// Stand in for the configured OpenCode executable so tests never consult a developer's sessions.
+const scannerProcessRunner = Layer.effect(
+  ProcessRunner.ProcessRunner,
+  Effect.gen(function* () {
+    const runner = yield* ProcessRunner.ProcessRunner;
+    return ProcessRunner.ProcessRunner.of({
+      run: (input) => {
+        if (input.command !== "fixture-opencode") return runner.run(input);
+        expect(input.args).toEqual(["debug", "paths", "db"]);
+        const dataHome = input.env?.XDG_DATA_HOME;
+        if (!dataHome) throw new Error("Missing fixture data home");
+        const file = input.env?.OPENCODE_DB ?? input.env?.FIXTURE_CHANNEL_DB ?? "opencode.db";
+        const target = file === ":memory:" ? file : NodePath.resolve(dataHome, "opencode", file);
+        return Effect.succeed({
+          stdout: target + "\r\n",
+          stderr: "",
+          code: ChildProcessSpawner.ExitCode(0),
+          timedOut: false,
+          stdoutTruncated: false,
+          stderrTruncated: false,
+          stdoutInvalidUtf8: false,
+          stderrInvalidUtf8: false,
+        });
+      },
+    });
+  }),
+).pipe(Layer.provide(ProcessRunner.layer));
+
 const layerScannerTest = (input: ScannerTestInput) =>
-  (input.processRunner === undefined
-    ? AgentSessionScanner.layer
-    : Layer.effect(AgentSessionScanner.AgentSessionScanner, AgentSessionScanner.make).pipe(
-        Layer.provide(input.processRunner),
-      )
-  ).pipe(
+  Layer.effect(AgentSessionScanner.AgentSessionScanner, AgentSessionScanner.make).pipe(
+    Layer.provide(input.processRunner ?? scannerProcessRunner),
     Layer.provide(
       Layer.mergeAll(
         ServerSettings.layerTest({
@@ -107,6 +133,12 @@ const layerScannerTest = (input: ScannerTestInput) =>
             [ProviderInstanceId.make("codex")]: {
               driver: ProviderDriverKind.make("codex"),
               config: { homePath: input.codexHomePath },
+            },
+            // Keeps the default OpenCode instance off the developer's real OpenCode history.
+            [ProviderInstanceId.make("opencode")]: {
+              driver: ProviderDriverKind.make("opencode"),
+              enabled: false,
+              config: {},
             },
             // Keeps the default Pi instance off the developer's real ~/.pi.
             [ProviderInstanceId.make("pi")]: {
@@ -4177,4 +4209,806 @@ describe("parseAgentSessionTranscript", () => {
         : { title: thread.title, texts: thread.messages.map((message) => message.text) },
     ).toEqual(expected);
   });
+
+  // OpenCode keeps every session in one database, so these fixtures build it as OpenCode 2 does.
+  const writeOpenCodeDatabase = Effect.fn("AgentSessionScanner.test.writeOpenCodeDatabase")(
+    function* (input: {
+      readonly dataHome: string;
+      // OpenCode's default file name, unless OPENCODE_DB names another.
+      readonly file?: string;
+      readonly sessions: ReadonlyArray<{
+        readonly id: string;
+        readonly directory: string;
+        readonly title?: string | null;
+        readonly model?: string | null;
+        readonly parentId?: string | null;
+        readonly archived?: number | null;
+        readonly timeUpdated: number;
+        // A message's kind is its own column, and its data holds everything else, as OpenCode 2 keeps them.
+        readonly messages: ReadonlyArray<{ readonly type: string; readonly data: unknown }>;
+      }>;
+      readonly legacy?: boolean;
+    }) {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = path.join(input.dataHome, "opencode");
+      yield* fileSystem.makeDirectory(directory, { recursive: true });
+      yield* Effect.sync(() => {
+        const database = new NodeSqlite.DatabaseSync(
+          path.join(directory, input.file ?? "opencode.db"),
+        );
+        try {
+          if (input.legacy) {
+            // OpenCode 1 kept sessions in another table, which has nothing to import here.
+            database.exec("CREATE TABLE session (id TEXT PRIMARY KEY, directory TEXT)");
+            database.exec("INSERT INTO session VALUES ('ses_legacy', '/nowhere')");
+            return;
+          }
+          database.exec(
+            `CREATE TABLE session_v2 (id TEXT PRIMARY KEY, directory TEXT, title TEXT, model TEXT,
+               parent_id TEXT, time_archived INTEGER, time_created INTEGER, time_updated INTEGER)`,
+          );
+          database.exec(
+            `CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, seq INTEGER,
+               time_created INTEGER, time_updated INTEGER, data TEXT)`,
+          );
+          const session = database.prepare(
+            "INSERT INTO session_v2 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          );
+          const message = database.prepare(
+            "INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?, ?)",
+          );
+          // One transaction, so a fixture of many sessions or messages is written quickly.
+          database.exec("BEGIN");
+          for (const entry of input.sessions) {
+            session.run(
+              entry.id,
+              entry.directory,
+              entry.title ?? null,
+              entry.model ?? null,
+              entry.parentId ?? null,
+              entry.archived ?? null,
+              entry.timeUpdated - 60_000,
+              entry.timeUpdated,
+            );
+            for (const [seq, item] of entry.messages.entries()) {
+              message.run(
+                `${entry.id}-${seq}`,
+                entry.id,
+                item.type,
+                seq + 1,
+                entry.timeUpdated,
+                entry.timeUpdated,
+                JSON.stringify(item.data),
+              );
+            }
+          }
+          database.exec("COMMIT");
+        } finally {
+          database.close();
+        }
+      });
+    },
+  );
+
+  // OpenCode archives a session by stamping it, and keeps its messages.
+  const archiveOpenCodeSession = Effect.fn("AgentSessionScanner.test.archiveOpenCodeSession")(
+    function* (input: { readonly dataHome: string; readonly id: string; readonly at: number }) {
+      const path = yield* Path.Path;
+      yield* Effect.sync(() => {
+        const database = new NodeSqlite.DatabaseSync(
+          path.join(input.dataHome, "opencode", "opencode.db"),
+        );
+        try {
+          database
+            .prepare("UPDATE session_v2 SET time_archived = ? WHERE id = ?")
+            .run(input.at, input.id);
+        } finally {
+          database.close();
+        }
+      });
+    },
+  );
+
+  // Appends one message without touching the session's own row.
+  const appendOpenCodeMessage = Effect.fn("AgentSessionScanner.test.appendOpenCodeMessage")(
+    function* (input: {
+      readonly dataHome: string;
+      readonly sessionId: string;
+      readonly seq: number;
+      readonly at: number;
+      readonly message: { readonly type: string; readonly data: unknown };
+    }) {
+      const path = yield* Path.Path;
+      yield* Effect.sync(() => {
+        const database = new NodeSqlite.DatabaseSync(
+          path.join(input.dataHome, "opencode", "opencode.db"),
+        );
+        try {
+          database
+            .prepare("INSERT INTO session_message VALUES (?, ?, ?, ?, ?, ?, ?)")
+            .run(
+              `${input.sessionId}-${input.seq}`,
+              input.sessionId,
+              input.message.type,
+              input.seq,
+              input.at,
+              input.at,
+              JSON.stringify(input.message.data),
+            );
+        } finally {
+          database.close();
+        }
+      });
+    },
+  );
+
+  const openCodeInstanceWith = (
+    dataHome: string,
+    variables: ReadonlyArray<readonly [name: string, value: string]>,
+  ): NonNullable<ScannerTestInput["providerInstances"]> => ({
+    [ProviderInstanceId.make("opencode")]: {
+      driver: ProviderDriverKind.make("opencode"),
+      enabled: true,
+      environment: [
+        { name: "XDG_DATA_HOME", value: dataHome, sensitive: false },
+        ...variables.map(([name, value]) => ({ name, value, sensitive: false })),
+      ],
+      config: { binaryPath: "fixture-opencode" },
+    },
+  });
+
+  const openCodeInstance = (dataHome: string): NonNullable<ScannerTestInput["providerInstances"]> =>
+    openCodeInstanceWith(dataHome, []);
+
+  const glmModel = JSON.stringify({ id: "glm-5.4", providerID: "zai-coding-plan" });
+
+  it.effect("lists and reads OpenCode sessions kept in the OpenCode 2 database", () =>
+    Effect.gen(function* () {
+      const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+      yield* TestClock.setTime(nowMs);
+      const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+      const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      const otherWorkspace = yield* makeTempDir("t3code-workspace-other-");
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      const at = nowMs - 60 * 60 * 1000;
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        sessions: [
+          {
+            id: "ses_recent",
+            directory: workspace,
+            title: "GLM refactor",
+            model: glmModel,
+            timeUpdated: at,
+            messages: [
+              {
+                type: "user",
+                data: { time: { created: at - 60_000 }, text: "Plan the change" },
+              },
+              {
+                type: "assistant",
+                data: {
+                  time: { created: at - 30_000 },
+                  model: { id: "glm-5.4", providerID: "zai-coding-plan" },
+                  content: [
+                    { type: "reasoning", text: "Hidden reasoning" },
+                    {
+                      type: "tool",
+                      tool: "bash",
+                      state: { status: "completed", output: "Tool output" },
+                    },
+                    { type: "text", text: "Active answer" },
+                  ],
+                },
+              },
+              { type: "idle", data: { time: { created: at }, outcome: "succeeded" } },
+            ],
+          },
+          // A child session is a subagent's, and an archived session is finished with.
+          {
+            id: "ses_child",
+            directory: workspace,
+            parentId: "ses_recent",
+            timeUpdated: at,
+            messages: [{ type: "user", data: { text: "Child prompt" } }],
+          },
+          {
+            id: "ses_archived",
+            directory: workspace,
+            archived: at,
+            timeUpdated: at,
+            messages: [{ type: "user", data: { text: "Archived prompt" } }],
+          },
+          {
+            id: "ses_other",
+            directory: otherWorkspace,
+            timeUpdated: at,
+            messages: [{ type: "user", data: { text: "Other prompt" } }],
+          },
+        ],
+      });
+      const input = {
+        claudeHomePath,
+        codexHomePath,
+        workspaceRoot: workspace,
+        providerInstances: openCodeInstance(dataHome),
+      };
+
+      const scan = yield* runScan(input);
+      // The child and archived sessions are not counted, so each folder offers one conversation.
+      expect(scan.candidates.map((entry) => [entry.sources, entry.threadCount])).toEqual([
+        [["opencode"], 1],
+        [["opencode"], 1],
+      ]);
+
+      const threads = yield* runRecentThreads(input);
+      expect(threads).toHaveLength(1);
+      expect(threads[0]).toMatchObject({
+        source: "opencode",
+        providerInstanceId: "opencode",
+        providerSessionId: "ses_recent",
+        title: "GLM refactor",
+        model: "zai-coding-plan/glm-5.4",
+        omittedMessageCount: 0,
+      });
+      // Reasoning, tool output and bookkeeping entries stay out of the history.
+      expect(threads[0]?.messages.map((message) => [message.role, message.text])).toEqual([
+        ["user", "Plan the change"],
+        ["assistant", "Active answer"],
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "reports an unchanged OpenCode session as already imported, with a stable identity",
+    () =>
+      Effect.gen(function* () {
+        const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+        yield* TestClock.setTime(nowMs);
+        const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+        const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+        const workspace = yield* makeTempDir("t3code-workspace-");
+        const dataHome = yield* makeTempDir("t3code-opencode-home-");
+        const at = nowMs - 60 * 60 * 1000;
+        const messages = [
+          { type: "user", data: { time: { created: at }, text: "Plan the change" } },
+          {
+            type: "assistant",
+            data: { time: { created: at }, content: [{ type: "text", text: "Done" }] },
+          },
+        ];
+        yield* writeOpenCodeDatabase({
+          dataHome,
+          sessions: [
+            { id: "ses_recent", directory: workspace, title: null, timeUpdated: at, messages },
+          ],
+        });
+        const input = {
+          claudeHomePath,
+          codexHomePath,
+          workspaceRoot: workspace,
+          providerInstances: openCodeInstance(dataHome),
+        };
+        const outcomes = yield* Effect.gen(function* () {
+          const scanner = yield* AgentSessionScanner.AgentSessionScanner;
+          const first = Array.from(yield* scanner.recentThreads(workspace).pipe(Stream.runCollect));
+          expect(first).toHaveLength(1);
+          const outcome = first[0];
+          if (outcome?._tag !== "Importable") return [];
+          return Array.from(
+            yield* scanner.recentThreads(workspace, [outcome.source]).pipe(Stream.runCollect),
+          );
+        }).pipe(Effect.provide(layerScannerTest(input)));
+        expect(outcomes).toEqual([
+          {
+            _tag: "AlreadyImported",
+            source: expect.objectContaining({
+              provider: "opencode",
+              providerInstanceId: "opencode",
+              providerSessionId: "ses_recent",
+              // The path key names the database and the session. The size is the sequence number
+              // of the last message, and the time is the session's own.
+              filePath: expect.stringMatching(/opencode\.db#ses_recent$/),
+              size: messages.length,
+              mtimeMs: at,
+            }),
+          },
+        ]);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "finds nothing to import from a database that predates OpenCode 2's session tables",
+    () =>
+      Effect.gen(function* () {
+        const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+        const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+        const workspace = yield* makeTempDir("t3code-workspace-");
+        const dataHome = yield* makeTempDir("t3code-opencode-home-");
+        yield* writeOpenCodeDatabase({ dataHome, sessions: [], legacy: true });
+        const scan = yield* runScan({
+          claudeHomePath,
+          codexHomePath,
+          providerInstances: openCodeInstance(dataHome),
+        });
+        expect(scan.candidates).toEqual([]);
+        const threads = yield* runRecentThreads({
+          claudeHomePath,
+          codexHomePath,
+          workspaceRoot: workspace,
+          providerInstances: openCodeInstance(dataHome),
+        });
+        expect(threads).toEqual([]);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "does not file local history under an OpenCode provider that uses an external server",
+    () =>
+      Effect.gen(function* () {
+        const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+        yield* TestClock.setTime(nowMs);
+        const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+        const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+        const workspace = yield* makeTempDir("t3code-workspace-");
+        const dataHome = yield* makeTempDir("t3code-opencode-home-");
+        const at = nowMs - 60 * 60 * 1000;
+        yield* writeOpenCodeDatabase({
+          dataHome,
+          sessions: [
+            {
+              id: "ses_recent",
+              directory: workspace,
+              timeUpdated: at,
+              messages: [
+                { type: "user", data: { text: "Plan the change" } },
+                { type: "assistant", data: { content: [{ type: "text", text: "Done" }] } },
+              ],
+            },
+          ],
+        });
+        // Both providers name the same database. The external one is listed first, so without
+        // the rule it would claim the conversation before the local one.
+        const providers: NonNullable<ScannerTestInput["providerInstances"]> = {
+          [ProviderInstanceId.make("opencode-remote")]: {
+            driver: ProviderDriverKind.make("opencode"),
+            enabled: true,
+            environment: [{ name: "XDG_DATA_HOME", value: dataHome, sensitive: false }],
+            config: { binaryPath: "fixture-opencode", serverUrl: "http://127.0.0.1:4096" },
+          },
+          [ProviderInstanceId.make("opencode-local")]: {
+            driver: ProviderDriverKind.make("opencode"),
+            enabled: true,
+            environment: [{ name: "XDG_DATA_HOME", value: dataHome, sensitive: false }],
+            config: { binaryPath: "fixture-opencode" },
+          },
+        };
+        const input = {
+          claudeHomePath,
+          codexHomePath,
+          workspaceRoot: workspace,
+          providerInstances: providers,
+        };
+
+        const scan = yield* runScan(input);
+        expect(scan.candidates.map((entry) => [entry.sources, entry.threadCount])).toEqual([
+          [["opencode"], 1], // counted once
+        ]);
+        const outcomes = yield* runRecentThreadOutcomes(input);
+        expect(outcomes).toHaveLength(1);
+        expect(outcomes[0]).toMatchObject({
+          _tag: "Importable",
+          thread: { providerInstanceId: "opencode-local", providerSessionId: "ses_recent" },
+        });
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("skips an OpenCode session past a limit instead of importing part of its history", () =>
+    Effect.gen(function* () {
+      const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+      yield* TestClock.setTime(nowMs);
+      const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+      const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      const at = nowMs - 60 * 60 * 1000;
+      const megabyte = "x".repeat(1024 * 1024);
+      // One JavaScript character, but three bytes in UTF-8 and two in UTF-16.
+      const wideMegabyte = "界".repeat(1024 * 1024);
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        sessions: [
+          // One row past the record limit. Bookkeeping rows count toward it.
+          {
+            id: "ses_many",
+            directory: workspace,
+            timeUpdated: at,
+            messages: Array.from({ length: 100_001 }, () => ({
+              type: "idle",
+              data: { outcome: "succeeded" },
+            })),
+          },
+          // One message past the limit on visible history. The limit counts two bytes per
+          // character, as the transcript reader does, so 16 MiB of text is already too much.
+          {
+            id: "ses_large",
+            directory: workspace,
+            timeUpdated: at,
+            // A user row keeps its text in one field and an assistant row in parts, as OpenCode does.
+            messages: Array.from({ length: 16 }, (_, index) => ({
+              type: index % 2 === 0 ? "user" : "assistant",
+              data:
+                index % 2 === 0
+                  ? { text: megabyte }
+                  : { content: [{ type: "text", text: megabyte }] },
+            })),
+          },
+          // The same with wide characters. Counting characters instead of bytes would let
+          // this one through at half the budget.
+          {
+            id: "ses_wide",
+            directory: workspace,
+            timeUpdated: at,
+            messages: Array.from({ length: 17 }, (_, index) => ({
+              type: index % 2 === 0 ? "user" : "assistant",
+              data:
+                index % 2 === 0
+                  ? { text: wideMegabyte }
+                  : { content: [{ type: "text", text: wideMegabyte }] },
+            })),
+          },
+          {
+            id: "ses_small",
+            directory: workspace,
+            timeUpdated: at,
+            messages: [
+              { type: "user", data: { text: "Plan the change" } },
+              { type: "assistant", data: { content: [{ type: "text", text: "Done" }] } },
+            ],
+          },
+        ],
+      });
+      const input = {
+        claudeHomePath,
+        codexHomePath,
+        workspaceRoot: workspace,
+        providerInstances: openCodeInstance(dataHome),
+      };
+      // Sessions are read newest first, then by name: large, many, small, wide.
+      const outcomes = yield* runRecentThreadOutcomes(input);
+      expect(outcomes.map((outcome) => outcome._tag)).toEqual([
+        "Skipped",
+        "Skipped",
+        "Importable",
+        "Skipped",
+      ]);
+      expect(outcomes[2]).toMatchObject({ thread: { providerSessionId: "ses_small" } });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reports a cut-off scan once OpenCode sessions pass the per-source cap", () =>
+    Effect.gen(function* () {
+      const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+      const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      const at = Date.parse("2026-08-24T12:00:00.000Z") - 60 * 60 * 1000;
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        sessions: Array.from({ length: 5001 }, (_, index) => ({
+          id: `ses_${String(index).padStart(4, "0")}`,
+          directory: workspace,
+          timeUpdated: at - index,
+          messages: [{ type: "user", data: { text: `Prompt ${index}` } }],
+        })),
+      });
+      const scan = yield* runScan({
+        claudeHomePath,
+        codexHomePath,
+        providerInstances: openCodeInstance(dataHome),
+      });
+      expect(scan.truncated).toBe(true);
+      expect(scan.candidates.map((entry) => entry.threadCount)).toEqual([5000]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("charges the exact stored bytes of OpenCode rows before accepting a session", () =>
+    Effect.gen(function* () {
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      for (const [id, char] of [
+        ["ascii", "x"],
+        ["wide", "界"],
+        ["emoji", "😀"],
+      ] as const) {
+        const file = id + ".db";
+        const messages = [
+          { type: "user", data: { text: char.repeat(32) } },
+          { type: "assistant", data: { content: [{ type: "text", text: "Done" }] } },
+        ];
+        yield* writeOpenCodeDatabase({
+          dataHome,
+          file,
+          sessions: [{ id, directory: workspace, timeUpdated: 1, messages }],
+        });
+        const bytes = messages.reduce(
+          (sum, row) => sum + Buffer.byteLength(JSON.stringify(row.data)),
+          0,
+        );
+        const db = NodePath.join(dataHome, "opencode", file);
+        const atLimit = AgentSessionScanner.readOpenCodeSession(db, id, bytes);
+        expect(atLimit.bytesRead).toBe(bytes);
+        expect(atLimit.session).not.toBeNull();
+        expect(AgentSessionScanner.readOpenCodeSession(db, id, bytes - 1)).toEqual({
+          bytesRead: bytes,
+          session: null,
+        });
+      }
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reads only the database that OPENCODE_DB names", () =>
+    Effect.gen(function* () {
+      const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+      yield* TestClock.setTime(nowMs);
+      const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+      const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      const workWorkspace = yield* makeTempDir("t3code-workspace-work-");
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      const at = nowMs - 60 * 60 * 1000;
+      // A default database and a separate one, as a user who keeps work and personal histories
+      // apart has them. OpenCode opens only the one OPENCODE_DB names.
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        sessions: [
+          {
+            id: "ses_default",
+            directory: workspace,
+            timeUpdated: at,
+            messages: [{ type: "user", data: { text: "Personal prompt" } }],
+          },
+        ],
+      });
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        file: " work.db",
+        sessions: [
+          {
+            id: "ses_work",
+            directory: workWorkspace,
+            timeUpdated: at,
+            messages: [{ type: "user", data: { text: "Work prompt" } }],
+          },
+        ],
+      });
+      const providerInstances = openCodeInstanceWith(dataHome, [["OPENCODE_DB", " work.db"]]);
+      const homesOnly = { claudeHomePath, codexHomePath };
+
+      const scan = yield* runScan({ ...homesOnly, providerInstances });
+      expect(scan.candidates.map((entry) => [entry.sources, entry.threadCount])).toEqual([
+        [["opencode"], 1],
+      ]);
+      const work = yield* runRecentThreadOutcomes({
+        ...homesOnly,
+        providerInstances,
+        workspaceRoot: workWorkspace,
+      });
+      expect(work).toMatchObject([
+        { _tag: "Importable", thread: { providerSessionId: "ses_work" } },
+      ]);
+      const personal = yield* runRecentThreadOutcomes({
+        ...homesOnly,
+        providerInstances,
+        workspaceRoot: workspace,
+      });
+      expect(personal).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("finds nothing where OPENCODE_DB names a database that exists only in memory", () =>
+    Effect.gen(function* () {
+      const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+      yield* TestClock.setTime(nowMs);
+      const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+      const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        sessions: [
+          {
+            id: "ses_default",
+            directory: workspace,
+            timeUpdated: nowMs - 60 * 60 * 1000,
+            messages: [{ type: "user", data: { text: "Personal prompt" } }],
+          },
+        ],
+      });
+      const scan = yield* runScan({
+        claudeHomePath,
+        codexHomePath,
+        providerInstances: openCodeInstanceWith(dataHome, [["OPENCODE_DB", ":memory:"]]),
+      });
+      expect(scan.candidates).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reads only the database reported by the configured OpenCode binary", () =>
+    Effect.gen(function* () {
+      const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+      yield* TestClock.setTime(nowMs);
+      const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+      const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      const at = nowMs - 60 * 60 * 1000;
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        sessions: [
+          {
+            id: "ses_default",
+            directory: workspace,
+            timeUpdated: at,
+            messages: [{ type: "user", data: { text: "Default prompt" } }],
+          },
+        ],
+      });
+      // A build on another channel keeps its history in its own file beside the default.
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        file: "opencode-local.db",
+        sessions: [
+          {
+            id: "ses_local",
+            directory: workspace,
+            timeUpdated: at - 1000,
+            messages: [{ type: "user", data: { text: "Channel prompt" } }],
+          },
+        ],
+      });
+      const homesOnly = { claudeHomePath, codexHomePath };
+
+      const selectedSessions = (variables: ReadonlyArray<readonly [string, string]>) =>
+        runRecentThreads({
+          ...homesOnly,
+          workspaceRoot: workspace,
+          providerInstances: openCodeInstanceWith(dataHome, variables),
+        }).pipe(Effect.map((threads) => threads.map((thread) => thread.providerSessionId)));
+      expect(yield* selectedSessions([])).toEqual(["ses_default"]);
+      expect(yield* selectedSessions([["FIXTURE_CHANNEL_DB", "opencode-local.db"]])).toEqual([
+        "ses_local",
+      ]);
+      const missingBinary = openCodeInstance(dataHome);
+      const id = ProviderInstanceId.make("opencode");
+      const unreadable = yield* runScan({
+        ...homesOnly,
+        providerInstances: {
+          [id]: {
+            ...missingBinary[id]!,
+            config: { binaryPath: NodePath.join(dataHome, "missing-binary") },
+          },
+        },
+      });
+      expect(unreadable.candidates).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("does not import an OpenCode session that was archived after it was listed", () =>
+    Effect.gen(function* () {
+      const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+      yield* TestClock.setTime(nowMs);
+      const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+      const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      const at = nowMs - 60 * 60 * 1000;
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        sessions: [
+          {
+            id: "ses_recent",
+            directory: workspace,
+            timeUpdated: at,
+            messages: [
+              { type: "user", data: { time: { created: at }, text: "Plan the change" } },
+              {
+                type: "assistant",
+                data: { time: { created: at }, content: [{ type: "text", text: "Done" }] },
+              },
+            ],
+          },
+        ],
+      });
+      const input = {
+        claudeHomePath,
+        codexHomePath,
+        workspaceRoot: workspace,
+        providerInstances: openCodeInstance(dataHome),
+      };
+      const outcomes = yield* Effect.gen(function* () {
+        const scanner = yield* AgentSessionScanner.AgentSessionScanner;
+        const first = Array.from(yield* scanner.recentThreads(workspace).pipe(Stream.runCollect));
+        expect(first.map((outcome) => outcome._tag)).toEqual(["Importable"]);
+        // The page keeps what it listed. The session is archived in OpenCode before its history
+        // is asked for again.
+        yield* archiveOpenCodeSession({ dataHome, id: "ses_recent", at: at + 1000 });
+        return Array.from(yield* scanner.recentThreads(workspace).pipe(Stream.runCollect));
+      }).pipe(Effect.provide(layerScannerTest(input)));
+      expect(outcomes.map((outcome) => outcome._tag)).toEqual(["Skipped"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("offers an imported OpenCode session again once it gains a message", () =>
+    Effect.gen(function* () {
+      const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+      yield* TestClock.setTime(nowMs);
+      const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+      const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+      const workspace = yield* makeTempDir("t3code-workspace-");
+      const dataHome = yield* makeTempDir("t3code-opencode-home-");
+      const at = nowMs - 60 * 60 * 1000;
+      yield* writeOpenCodeDatabase({
+        dataHome,
+        sessions: [
+          {
+            id: "ses_recent",
+            directory: workspace,
+            timeUpdated: at,
+            messages: [
+              { type: "user", data: { time: { created: at }, text: "Plan the change" } },
+              {
+                type: "assistant",
+                data: { time: { created: at }, content: [{ type: "text", text: "Done" }] },
+              },
+            ],
+          },
+        ],
+      });
+      const input = {
+        claudeHomePath,
+        codexHomePath,
+        workspaceRoot: workspace,
+        providerInstances: openCodeInstance(dataHome),
+      };
+      const imported = yield* Effect.gen(function* () {
+        const scanner = yield* AgentSessionScanner.AgentSessionScanner;
+        const first = Array.from(yield* scanner.recentThreads(workspace).pipe(Stream.runCollect));
+        const outcome = first[0];
+        return outcome?._tag === "Importable" ? Option.some(outcome.source) : Option.none();
+      }).pipe(Effect.provide(layerScannerTest(input)));
+      const source = Option.getOrThrow(imported);
+      // The new message leaves the session's own row alone, so only its last sequence shows it.
+      yield* appendOpenCodeMessage({
+        dataHome,
+        sessionId: "ses_recent",
+        seq: 3,
+        at: at + 1000,
+        message: {
+          type: "user",
+          data: { time: { created: at + 1000 }, text: "And one more thing" },
+        },
+      });
+      // The page was reopened in between, so the sessions are listed again.
+      const outcomes = yield* Effect.gen(function* () {
+        const scanner = yield* AgentSessionScanner.AgentSessionScanner;
+        return Array.from(
+          yield* scanner.recentThreads(workspace, [source]).pipe(Stream.runCollect),
+        );
+      }).pipe(Effect.provide(layerScannerTest(input)));
+      expect(outcomes).toMatchObject([
+        {
+          _tag: "Importable",
+          source: { size: 3 },
+          thread: {
+            messages: expect.arrayContaining([
+              expect.objectContaining({ role: "user", text: "And one more thing" }),
+            ]),
+          },
+        },
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });

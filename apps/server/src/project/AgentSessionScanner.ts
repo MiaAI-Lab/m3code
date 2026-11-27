@@ -42,6 +42,7 @@ import * as ProviderSessionRuntime from "../persistence/ProviderSessionRuntime.t
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
 import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
+import { OpenCodeSettings } from "@t3tools/provider-opencode/settings";
 import { piHome, resolvePiSessionsDir } from "@t3tools/provider-pi/server/usage";
 import * as ServerSettings from "../serverSettings.ts";
 import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
@@ -68,6 +69,18 @@ class CodexStateReadError extends Schema.TaggedError<CodexStateReadError>()("Cod
 }) {
   override get message(): string {
     return `Could not read Codex projects from ${this.databasePath}.`;
+  }
+}
+
+class OpenCodeStateReadError extends Schema.TaggedError<OpenCodeStateReadError>()(
+  "OpenCodeStateReadError",
+  {
+    databasePath: Schema.String,
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `Could not read OpenCode sessions from ${this.databasePath}.`;
   }
 }
 const METADATA_READ_BYTES = 8 * 1024;
@@ -127,6 +140,8 @@ const TranscriptRecord = Schema.Struct({
   id: Schema.optional(Schema.String),
   parentId: Schema.optional(Schema.NullOr(Schema.String)),
   name: Schema.optional(Schema.String),
+  // An OpenCode session record names the model the session ran on.
+  model: Schema.optional(Schema.String),
   timestamp: Schema.optional(Schema.String),
   cwd: Schema.optional(Schema.String),
   sessionId: Schema.optional(Schema.String),
@@ -159,6 +174,7 @@ const CodexSessionIndexEntry = Schema.Struct({
 
 const decodeClaudeSettings = Schema.decodeUnknownOption(ClaudeSettings);
 const decodeCodexSettings = Schema.decodeUnknownOption(CodexSettings);
+const decodeOpenCodeSettings = Schema.decodeUnknownOption(OpenCodeSettings);
 const decodeTranscriptRecord = Schema.decodeUnknownOption(Schema.fromJsonString(TranscriptRecord));
 const decodeTranscriptValue = Schema.decodeUnknownOption(TranscriptRecord);
 const decodePiEntryLinks = Schema.decodeUnknownOption(
@@ -199,6 +215,7 @@ const isCompressedTranscript = (filePath: string) =>
   filePath.endsWith(COMPRESSED_TRANSCRIPT_SUFFIX);
 // Codex records a chat's project only here; moving a chat leaves its rollout cwd unchanged.
 const CODEX_STATE_DATABASE = "state_5.sqlite";
+const MAX_OPENCODE_SESSION_ROWS = MAX_TRANSCRIPTS_PER_SOURCE;
 const decodeCodexSessionIndexEntry = Schema.decodeUnknownOption(
   Schema.fromJsonString(CodexSessionIndexEntry),
 );
@@ -266,6 +283,7 @@ interface RawCandidate {
     readonly filePath: string;
     readonly mtimeMs: number | null;
     readonly projectRoots?: ReadonlyArray<string> | undefined;
+    readonly openCode?: OpenCodeSession | undefined;
   }>;
 }
 
@@ -276,7 +294,27 @@ interface TranscriptCandidate {
   readonly homePath: string;
   readonly identity: TranscriptIdentity;
   readonly projectRoots?: ReadonlyArray<string> | undefined;
+  readonly openCode?: OpenCodeSession | undefined;
 }
+
+/**
+ * An OpenCode session stands in for a transcript file. Its path key names the database and the
+ * session, because OpenCode keeps every session in one database.
+ */
+interface OpenCodeSession {
+  readonly databasePath: string;
+  readonly sessionId: string;
+  readonly directory: string;
+  /**
+   * The database file's identity, with the session's own size and time in place of the file's. The
+   * size is the session's last message sequence, which OpenCode indexes, and the time is the
+   * session's own.
+   */
+  readonly identity: ReturnType<typeof transcriptIdentity>;
+}
+
+const openCodeTranscriptPath = (databasePath: string, sessionId: string) =>
+  `${databasePath}#${sessionId}`;
 
 interface MetadataReadBudget {
   bytesRemaining: number;
@@ -493,7 +531,8 @@ function activePiBranch(
   return branch.toReversed();
 }
 
-function isPiConversationRecord(
+// Pi and OpenCode keep a conversation as plain message records in order.
+function isConversationMessageRecord(
   record: DecodedTranscriptRecord,
 ): record is DecodedTranscriptRecord & {
   readonly message: typeof TranscriptMessage.Type & { readonly role: "user" | "assistant" };
@@ -529,18 +568,25 @@ function parseAgentSessionRecords(
   const fallbackTimestamp = DateTime.formatIso(DateTime.makeUnsafe(input.lastActiveAtMs));
   // Claude filenames are session IDs. Codex rollout filenames include extra
   // timestamp text, so only transcript metadata can provide a resumable ID.
+  // Pi and OpenCode name a session in its session record.
+  const sessionRecord =
+    input.source === "pi" || input.source === "opencode"
+      ? records.find((record) => record.type === "session")
+      : undefined;
   let providerSessionId =
     input.source === "codex"
       ? ""
-      : input.source === "pi"
-        ? records.find((record) => record.type === "session")?.id?.trim() || input.fallbackSessionId
+      : sessionRecord !== undefined
+        ? sessionRecord.id?.trim() || input.fallbackSessionId
         : (claudeFields.sessionId ?? input.fallbackSessionId);
   // Pi titles a session by its latest session_info on any branch; an empty name clears it.
   const title =
-    input.source === "pi"
+    input.source === "pi" || input.source === "opencode"
       ? records.findLast((record) => record.type === "session_info")?.name?.trim() || null
       : (claudeFields.title ?? null);
-  let model = claudeFields.model ?? null;
+  let model =
+    claudeFields.model ??
+    (input.source === "opencode" ? sessionRecord?.model?.trim() || null : null);
   let derivedTitle: string | undefined;
   // Names a session whose only request was a bare command, such as `/review`.
   let bareCommandTitle: string | undefined;
@@ -642,8 +688,8 @@ function parseAgentSessionRecords(
   let recordIndex = -1;
   for (const record of input.source === "pi" ? activePiBranch(records) : records) {
     recordIndex += 1;
-    if (input.source === "pi") {
-      if (!isPiConversationRecord(record)) continue;
+    if (input.source === "pi" || input.source === "opencode") {
+      if (!isConversationMessageRecord(record)) continue;
       const text = extractText(record.message.content);
       if (text.length === 0) continue;
       retainMessage({
@@ -910,6 +956,239 @@ function sameTranscriptIdentity(left: TranscriptIdentity, right: TranscriptIdent
   );
 }
 
+interface OpenCodeSessionRow {
+  readonly id: string;
+  readonly directory: string;
+  readonly timeUpdated: number;
+  /** The sequence number of the newest message. It changes when the session gains or loses one. */
+  readonly lastSeq: number;
+}
+
+interface OpenCodeSessionSnapshot {
+  readonly records: ReadonlyArray<DecodedTranscriptRecord>;
+  readonly directory: string;
+  readonly timeUpdated: number;
+  readonly lastSeq: number;
+  readonly historyBytes: number;
+}
+
+/**
+ * The outcome of reading a session. `bytesRead` counts the message rows read and is charged to the
+ * import budget whether or not the session could be used. `session` is null when the session
+ * cannot be imported whole, because it is no longer eligible or ran past a limit.
+ */
+interface OpenCodeSessionRead {
+  readonly bytesRead: number;
+  readonly session: OpenCodeSessionSnapshot | null;
+}
+
+const textField = (value: unknown): string => (typeof value === "string" ? value : "");
+
+const numberField = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
+const parseJsonField = (value: unknown): Record<string, unknown> | null => {
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>)
+    : null;
+};
+
+// OpenCode stores a model as a JSON object; M3 names it `provider/model`.
+function openCodeModelReference(value: unknown): string | null {
+  const model = parseJsonField(value);
+  const id = textField(model?.id).trim();
+  const providerId = textField(model?.providerID).trim();
+  return id.length === 0 ? null : providerId.length === 0 ? id : `${providerId}/${id}`;
+}
+
+// OpenCode 2 keeps a message's kind in its own column, a user message's text in one field and an
+// assistant's in parts. Only text is shown.
+function parseOpenCodeMessage(
+  kind: unknown,
+  data: unknown,
+): {
+  readonly role: "user" | "assistant";
+  readonly text: string;
+  readonly createdAt: string | undefined;
+  readonly model: string | null;
+} | null {
+  const message = parseJsonField(data);
+  if (message === null) return null;
+  const type = typeof kind === "string" && kind.length > 0 ? kind : message.type;
+  const created = parseJsonField(message.time)?.created;
+  const createdAt =
+    typeof created === "number" && Number.isFinite(created)
+      ? DateTime.formatIso(DateTime.makeUnsafe(created))
+      : typeof created === "string"
+        ? created
+        : undefined;
+  const model = openCodeModelReference(message.model);
+  if (type === "user") {
+    const text = textField(message.text).trim();
+    return text.length === 0 ? null : { role: "user", text, createdAt, model };
+  }
+  if (type !== "assistant" || !Array.isArray(message.content)) return null;
+  const text = message.content
+    .flatMap((part) => {
+      const block = parseJsonField(part);
+      return block?.type === "text" ? [textField(block.text)] : [];
+    })
+    .filter((part) => part.trim().length > 0)
+    .join("\n")
+    .trim();
+  return text.length === 0 ? null : { role: "assistant", text, createdAt, model };
+}
+
+/**
+ * Top-level, unarchived sessions as OpenCode 2 keeps them, newest first, up to one past the cap.
+ * No message is read here: a session's last sequence comes from OpenCode's unique index on
+ * (session_id, seq), so listing costs the same however large the histories are.
+ */
+function listOpenCodeSessions(databasePath: string): ReadonlyArray<OpenCodeSessionRow> {
+  const database = new NodeSqlite.DatabaseSync(databasePath, { readOnly: true });
+  try {
+    database.exec("PRAGMA busy_timeout = 100");
+    const rows = database
+      .prepare(
+        `SELECT s.id AS id, s.directory AS directory, s.time_updated AS timeUpdated,
+                COALESCE((SELECT MAX(m.seq) FROM session_message m
+                          WHERE m.session_id = s.id), 0) AS lastSeq
+         FROM session_v2 s
+         WHERE s.parent_id IS NULL AND s.time_archived IS NULL
+         ORDER BY s.time_updated DESC
+         LIMIT ?`,
+      )
+      .all(MAX_OPENCODE_SESSION_ROWS + 1) as ReadonlyArray<Record<string, unknown>>;
+    return rows.flatMap((row): OpenCodeSessionRow[] => {
+      const id = textField(row.id).trim();
+      const directory = textField(row.directory).trim();
+      const timeUpdated = numberField(row.timeUpdated);
+      const lastSeq = numberField(row.lastSeq);
+      return id.length === 0 || directory.length === 0 || timeUpdated === null || lastSeq === null
+        ? []
+        : [{ id, directory, timeUpdated, lastSeq }];
+    });
+  } finally {
+    database.close();
+  }
+}
+
+/**
+ * A session's visible messages as transcript records, in the shape the Pi parser reads. One read
+ * transaction covers the eligibility check and the messages, so a session archived since it was
+ * listed is left out. The first message row past `maxBytes` ends the read, and the session is left
+ * out rather than imported in part.
+ */
+export function readOpenCodeSession(
+  databasePath: string,
+  sessionId: string,
+  maxBytes: number,
+): OpenCodeSessionRead {
+  const database = new NodeSqlite.DatabaseSync(databasePath, { readOnly: true });
+  try {
+    database.exec("PRAGMA busy_timeout = 100");
+    database.exec("BEGIN");
+    try {
+      const session = database
+        .prepare(
+          "SELECT directory, title, model, time_updated FROM session_v2 WHERE id = ? AND parent_id IS NULL AND time_archived IS NULL",
+        )
+        .get(sessionId) as Record<string, unknown> | undefined;
+      const directory = textField(session?.directory).trim();
+      const timeUpdated = session === undefined ? null : numberField(session.time_updated);
+      if (session === undefined || directory.length === 0 || timeUpdated === null) {
+        return { bytesRead: 0, session: null };
+      }
+      // The same measure the session list uses, so an unchanged session keeps its identity.
+      const lastSeq =
+        numberField(
+          database
+            .prepare("SELECT MAX(seq) AS lastSeq FROM session_message WHERE session_id = ?")
+            .get(sessionId)?.lastSeq,
+        ) ?? 0;
+      // Rows arrive one at a time and are dropped once their text is kept. A session can hold
+      // gigabytes of tool output that is never shown, and reading it whole would take the server
+      // down with it. Past any limit only part of the history is left, and it must not pass as
+      // the whole.
+      const rows = database
+        .prepare(
+          "SELECT type, data, octet_length(data) AS bytes FROM session_message WHERE session_id = ? ORDER BY seq LIMIT ?",
+        )
+        .iterate(sessionId, MAX_IMPORT_RECORDS + 1);
+      const messages: Array<DecodedTranscriptRecord> = [];
+      let historyBytes = 0;
+      let bytesRead = 0;
+      let lastModel: string | null = null;
+      let count = 0;
+      let partial = false;
+      for (const row of rows) {
+        count += 1;
+        bytesRead += Number(row.bytes);
+        if (count > MAX_IMPORT_RECORDS || bytesRead > maxBytes) {
+          partial = true;
+          break;
+        }
+        const message = parseOpenCodeMessage(row.type, row.data);
+        if (message === null) continue;
+        // The transcript reader's accounting: two bytes per UTF-16 code unit, plus a little for
+        // the record. Counting characters would let twice the budget in.
+        historyBytes += 64 + message.text.length * 2;
+        if (historyBytes > MAX_IMPORT_HISTORY_BYTES) {
+          partial = true;
+          break;
+        }
+        lastModel = message.model ?? lastModel;
+        const decoded = decodeTranscriptValue({
+          type: "message",
+          timestamp: message.createdAt,
+          message: { role: message.role, content: message.text },
+        });
+        if (Option.isSome(decoded)) messages.push(decoded.value);
+      }
+      if (partial) return { bytesRead, session: null };
+      const title = textField(session.title).trim();
+      const header: Record<string, unknown> = { type: "session", id: sessionId };
+      const model = openCodeModelReference(session.model) ?? lastModel;
+      if (model !== null) header.model = model;
+      const records: Array<DecodedTranscriptRecord> = [];
+      for (const record of [
+        header,
+        ...(title.length === 0 ? [] : [{ type: "session_info", name: title }]),
+      ]) {
+        const decoded = decodeTranscriptValue(record);
+        if (Option.isSome(decoded)) records.push(decoded.value);
+      }
+      return {
+        bytesRead,
+        session: {
+          records: [...records, ...messages],
+          directory,
+          timeUpdated,
+          lastSeq,
+          historyBytes,
+        },
+      };
+    } finally {
+      // Only a read happened. Ending the transaction releases its snapshot.
+      try {
+        database.exec("ROLLBACK");
+      } catch {
+        // The read itself failed; that error is the one reported.
+      }
+    }
+  } finally {
+    database.close();
+  }
+}
+
 /** @public */
 export const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
@@ -1008,6 +1287,27 @@ export const make = Effect.gen(function* () {
       .realPath(resolved)
       .pipe(Effect.orElseSucceed(() => resolved));
     return `path:${normalizeProjectPathForComparison(realPath)}`;
+  });
+
+  // An OpenCode binary knows its own channel. Another channel's sessions cannot be resumed by it.
+  const openCodeDatabase = Effect.fn("AgentSessionScanner.openCodeDatabase")(function* (
+    binaryPath: string,
+    environment: NodeJS.ProcessEnv,
+  ) {
+    const result = yield* processRunner
+      .run({
+        command: expandHomePath(binaryPath, homeDir),
+        args: ["debug", "paths", "db"],
+        env: environment,
+        timeout: "10 seconds",
+        maxOutputBytes: 32 * 1024,
+      })
+      .pipe(Effect.option);
+    if (Option.isNone(result) || result.value.code !== 0 || result.value.stdoutInvalidUtf8) {
+      return null;
+    }
+    const databasePath = result.value.stdout.replace(/\r?\n$/, "");
+    return path.isAbsolute(databasePath) && !/[\r\n\0]/.test(databasePath) ? databasePath : null;
   });
 
   /** Stats a directory that may be offered as a project, or none when it is missing or excluded. */
@@ -1398,7 +1698,7 @@ export const make = Effect.gen(function* () {
                   } else if (
                     source === "pi" &&
                     decoded.value.type === "message" &&
-                    !isPiConversationRecord(decoded.value)
+                    !isConversationMessageRecord(decoded.value)
                   ) {
                     // Tool output can dwarf the conversation; keep only the tree links.
                     const { message: _message, ...links } = decoded.value;
@@ -1770,6 +2070,105 @@ export const make = Effect.gen(function* () {
     return { transcripts, truncated, operationsUsed: operationBudget - operationsRemaining };
   });
 
+  // One query lists every session in a database, so no budget is spent per session. For OpenCode
+  // a home is one database file, chosen where the homes are listed.
+  const discoverOpenCodeTranscripts = Effect.fn("AgentSessionScanner.discoverOpenCodeTranscripts")(
+    function* (
+      databasePath: string,
+      providerInstanceId: ProviderInstanceId,
+      _operationBudget: number,
+    ) {
+      const stats = yield* statOption(databasePath);
+      if (Option.isNone(stats) || stats.value.type !== "File") {
+        return { transcripts: [], truncated: false, operationsUsed: 1 };
+      }
+      const fileIdentity = transcriptIdentity(databasePath, stats.value);
+      const sessions = yield* Effect.try({
+        try: () => listOpenCodeSessions(databasePath),
+        catch: (cause) => new OpenCodeStateReadError({ databasePath, cause }),
+      }).pipe(
+        Effect.catch((cause) =>
+          // A database from another OpenCode version has no such table, so there is nothing to import.
+          Effect.logDebug("Could not list OpenCode sessions", { databasePath, cause }).pipe(
+            Effect.as(null),
+          ),
+        ),
+      );
+      return {
+        // One session past the per-source cap is listed on purpose. The shared check that follows
+        // then reports the scan as cut off, instead of letting older sessions vanish silently.
+        transcripts: (sessions ?? []).map((session): TranscriptCandidate => {
+          const filePath = openCodeTranscriptPath(databasePath, session.id);
+          // A session changes when it gains or loses a message, so its last message's sequence
+          // number and its own time stand in for the file's size and time. The file's identity
+          // still ties it to this database.
+          const identity = {
+            ...fileIdentity,
+            filePath,
+            size: session.lastSeq,
+            mtimeMs: session.timeUpdated,
+          };
+          return {
+            filePath,
+            mtimeMs: session.timeUpdated,
+            providerInstanceId,
+            homePath: databasePath,
+            identity,
+            openCode: {
+              databasePath,
+              sessionId: session.id,
+              directory: session.directory,
+              identity,
+            },
+          };
+        }),
+        truncated: false,
+        operationsUsed: 1,
+      };
+    },
+  );
+
+  // An OpenCode session is read from its database where the other transcripts are read from a file.
+  // `maxBytes` is what is left of the import budget, and the read stops at it.
+  const readOpenCodeTranscript = Effect.fn("AgentSessionScanner.readOpenCodeTranscript")(function* (
+    session: OpenCodeSession & { readonly filePath: string },
+    maxBytes: number,
+  ) {
+    const stats = yield* statOption(session.databasePath);
+    if (Option.isNone(stats) || stats.value.type !== "File") return null;
+    const fileIdentity = transcriptIdentity(session.databasePath, stats.value);
+    const read = yield* Effect.try({
+      try: () => readOpenCodeSession(session.databasePath, session.sessionId, maxBytes),
+      catch: (cause) => new OpenCodeStateReadError({ databasePath: session.databasePath, cause }),
+    }).pipe(
+      Effect.catch((cause) =>
+        Effect.logWarning("Could not read an OpenCode session", {
+          filePath: session.filePath,
+          cause,
+        }).pipe(Effect.as(null)),
+      ),
+    );
+    if (read === null) return null;
+    const snapshot = read.session;
+    if (snapshot === null) return { bytesRead: read.bytesRead, snapshot: null };
+    return {
+      bytesRead: read.bytesRead,
+      snapshot: {
+        records: snapshot.records,
+        droppedMessageCount: 0,
+        cwd: Option.some(snapshot.directory),
+        claudeFields: emptyClaudeFields,
+        historyBytes: snapshot.historyBytes,
+        identity: {
+          ...fileIdentity,
+          filePath: session.filePath,
+          size: snapshot.lastSeq,
+          mtimeMs: snapshot.timeUpdated,
+        },
+      },
+    };
+  });
+
   const groupTranscriptsByCwd = Effect.fn("AgentSessionScanner.groupTranscriptsByCwd")(function* (
     source: AgentSessionSource,
     transcripts: ReadonlyArray<TranscriptCandidate>,
@@ -1794,15 +2193,18 @@ export const make = Effect.gen(function* () {
       // Unchanged imported transcripts keep their import cwd, so they never spend the read budget.
       // Codex is excluded: its first record carries the cwd and the subagent marker, and
       // rollouts imported before subagents were skipped must still be excluded by it.
+      // An OpenCode session's row names its folder, so no file is opened for it.
       const rolloutCwd =
-        (source === "codex"
-          ? undefined
-          : importedByFile.get(`${transcript.providerInstanceId}\0${transcript.filePath}`)
-        )?.find(
-          (imported) =>
-            imported.source.provider === source &&
-            sameTranscriptIdentity(imported.source, transcript.identity),
-        )?.cwd ?? (yield* readCwd(source, transcript, budget));
+        source === "opencode" && transcript.openCode !== undefined
+          ? transcript.openCode.directory
+          : ((source === "codex"
+              ? undefined
+              : importedByFile.get(`${transcript.providerInstanceId}\0${transcript.filePath}`)
+            )?.find(
+              (imported) =>
+                imported.source.provider === source &&
+                sameTranscriptIdentity(imported.source, transcript.identity),
+            )?.cwd ?? (yield* readCwd(source, transcript, budget)));
       if (rolloutCwd === null || rolloutCwd === false) continue;
       const cwd = yield* projectCwd(rolloutCwd, transcript.projectRoots);
       const key = `${transcript.providerInstanceId}\0${cwd}`;
@@ -1857,7 +2259,7 @@ export const make = Effect.gen(function* () {
     let truncated = false;
     let metadataTruncated = false;
 
-    for (const source of ["claudeAgent", "codex", "pi"] as const) {
+    for (const source of ["claudeAgent", "codex", "pi", "opencode"] as const) {
       const instances: Array<{
         readonly instanceId: ProviderInstanceId;
         readonly config: ProviderInstanceConfig;
@@ -1895,7 +2297,23 @@ export const make = Effect.gen(function* () {
         };
 
         let homePath: string;
-        if (source === "pi") {
+        if (source === "opencode") {
+          // An instance set to use an external server resumes through that server, so a local
+          // conversation filed under it could not be continued. Such an instance is not searched.
+          const config = decodeOpenCodeSettings(instance.config ?? {});
+          if (Option.isNone(config) || config.value.serverUrl.trim().length > 0) continue;
+          const environment = yield* mergeProviderInstanceEnvironment(
+            instance.environment,
+            hostEnvironment,
+          ).pipe(Effect.provideService(HostProcess.HomeDirectory, homeDir));
+          const databasePath = yield* openCodeDatabase(config.value.binaryPath, environment);
+          if (databasePath === null) continue;
+          const homeKey = `${source}\0${yield* directoryIdentity(databasePath)}`;
+          if (seenHomes.has(homeKey)) continue;
+          seenHomes.add(homeKey);
+          homes.push({ homePath: databasePath, providerInstanceId: instanceId });
+          continue;
+        } else if (source === "pi") {
           const environment = yield* mergeProviderInstanceEnvironment(
             instance.environment,
             hostEnvironment,
@@ -1940,7 +2358,9 @@ export const make = Effect.gen(function* () {
           ? discoverClaudeTranscripts
           : source === "codex"
             ? discoverCodexTranscripts
-            : discoverPiTranscripts;
+            : source === "opencode"
+              ? discoverOpenCodeTranscripts
+              : discoverPiTranscripts;
       const shares = splitOperationBudget(MAX_DISCOVERY_OPERATIONS_PER_SOURCE, homes.length);
       const discovered: Array<{
         readonly transcripts: ReadonlyArray<TranscriptCandidate>;
@@ -2262,14 +2682,18 @@ export const make = Effect.gen(function* () {
           const completed = completedByFile.get(
             `${candidate.providerInstanceId}\0${transcript.filePath}`,
           );
-          if (completed === undefined && (transcriptsRemaining === 0 || bytesRemaining === 0)) {
+          // An OpenCode read ends on the first row past the budget, so the remainder can be negative.
+          if (completed === undefined && (transcriptsRemaining === 0 || bytesRemaining <= 0)) {
             return Option.some<AgentSessionRecentThread>({ _tag: "Skipped" });
           }
-          const stats = yield* statOption(transcript.filePath);
+          // An OpenCode session's size and time are its own; its database file only shows it is there.
+          const openCode = candidate.source === "opencode" ? transcript.openCode : undefined;
+          const stats = yield* statOption(openCode?.databasePath ?? transcript.filePath);
           if (Option.isNone(stats) || stats.value.type !== "File") {
             return Option.some<AgentSessionRecentThread>({ _tag: "Skipped" });
           }
-          const identity = transcriptIdentity(transcript.filePath, stats.value);
+          const identity =
+            openCode?.identity ?? transcriptIdentity(transcript.filePath, stats.value);
           const completedSource = completed?.find(
             (source) =>
               source.provider === candidate.source && sameTranscriptIdentity(source, identity),
@@ -2283,16 +2707,31 @@ export const make = Effect.gen(function* () {
               source: completedSource,
             });
           }
+          // An OpenCode session's size is a sequence number, not a byte count. Its bytes are
+          // counted as its rows are read, and the read stops at what is left of the budget.
           if (
             transcriptsRemaining === 0 ||
-            identity.size > MAX_IMPORTED_TRANSCRIPT_BYTES ||
-            identity.size > bytesRemaining
+            (openCode === undefined &&
+              (identity.size > MAX_IMPORTED_TRANSCRIPT_BYTES || identity.size > bytesRemaining))
           ) {
             return Option.some<AgentSessionRecentThread>({ _tag: "Skipped" });
           }
           transcriptsRemaining -= 1;
-          bytesRemaining -= identity.size;
-          const snapshot = yield* readTranscript(transcript.filePath, identity, candidate.source);
+          const snapshot =
+            openCode === undefined
+              ? yield* Effect.gen(function* () {
+                  bytesRemaining -= identity.size;
+                  return yield* readTranscript(transcript.filePath, identity, candidate.source);
+                })
+              : yield* Effect.gen(function* () {
+                  const read = yield* readOpenCodeTranscript(
+                    { ...openCode, filePath: transcript.filePath },
+                    Math.max(0, Math.min(MAX_IMPORTED_TRANSCRIPT_BYTES, bytesRemaining)),
+                  );
+                  // Charged whether or not the session could be used.
+                  bytesRemaining -= read?.bytesRead ?? 0;
+                  return read?.snapshot ?? null;
+                });
           if (snapshot === null) {
             return Option.some<AgentSessionRecentThread>({ _tag: "Skipped" });
           }
@@ -2321,12 +2760,14 @@ export const make = Effect.gen(function* () {
             {
               source: candidate.source,
               providerInstanceId: candidate.providerInstanceId,
-              fallbackSessionId: path.basename(
-                transcript.filePath,
-                isCompressedTranscript(transcript.filePath)
-                  ? COMPRESSED_TRANSCRIPT_SUFFIX
-                  : ".jsonl",
-              ),
+              fallbackSessionId:
+                openCode?.sessionId ??
+                path.basename(
+                  transcript.filePath,
+                  isCompressedTranscript(transcript.filePath)
+                    ? COMPRESSED_TRANSCRIPT_SUFFIX
+                    : ".jsonl",
+                ),
               lastActiveAtMs: transcript.mtimeMs,
             },
             inheritedRecords === null
@@ -2357,7 +2798,7 @@ export const make = Effect.gen(function* () {
           }
 
           const source: AgentSessionImportSource = {
-            ...identity,
+            ...("identity" in snapshot ? snapshot.identity : identity),
             provider: parsedThread.source,
             providerInstanceId: parsedThread.providerInstanceId,
             providerSessionId: parsedThread.providerSessionId,
