@@ -69,27 +69,24 @@ const makeLayerSetup = <E, R>(migrate: Effect.Effect<unknown, E, R>) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
       // CLI and server write from separate processes; wait rather than fail with SQLITE_BUSY.
-      yield* sql.unsafe("PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;");
+      yield* sql`PRAGMA busy_timeout = 5000;`;
+      yield* sql`PRAGMA foreign_keys = ON;`;
       // Existing databases need doctor's offline VACUUM to add pointer maps for this mode.
       const tables = yield* sql<{
         readonly count: number;
       }>`SELECT COUNT(*) AS count FROM sqlite_schema WHERE type = 'table'`;
       if (tables[0]?.count === 0) yield* sql`PRAGMA auto_vacuum = INCREMENTAL;`;
-      // Batch WAL, durability, memory, and mmap PRAGMAs in one worker round-trip:
-      // - NORMAL syncs only at WAL checkpoints (F_FULLFSYNC flushes macOS drive caches).
-      // - 64 MiB page cache + 256 MiB mmap eliminates repeated pread syscalls on unified memory.
-      // - PASSIVE checkpoints retain peak WAL size until the last connection closes.
-      yield* sql.unsafe(
-        [
-          "PRAGMA journal_mode = WAL;",
-          "PRAGMA synchronous = NORMAL;",
-          "PRAGMA checkpoint_fullfsync = ON;",
-          "PRAGMA temp_store = MEMORY;",
-          "PRAGMA cache_size = -64000;",
-          "PRAGMA mmap_size = 268435456;",
-          `PRAGMA journal_size_limit = ${WAL_SIZE_LIMIT_BYTES};`,
-        ].join(" "),
-      );
+      // One PRAGMA per call: a prepared statement runs only the first of several.
+      yield* sql`PRAGMA journal_mode = WAL;`;
+      // NORMAL syncs only at WAL checkpoints; F_FULLFSYNC flushes macOS drive caches there.
+      yield* sql`PRAGMA synchronous = NORMAL;`;
+      yield* sql`PRAGMA checkpoint_fullfsync = ON;`;
+      yield* sql`PRAGMA temp_store = MEMORY;`;
+      // 64 MiB page cache and a 256 MiB mmap window save repeated reads.
+      yield* sql`PRAGMA cache_size = -64000;`;
+      yield* sql`PRAGMA mmap_size = 268435456;`;
+      // PASSIVE checkpoints retain peak WAL size until the last connection closes.
+      yield* sql.unsafe(`PRAGMA journal_size_limit = ${WAL_SIZE_LIMIT_BYTES};`);
       yield* migrate;
       // Collecting stats scans every page, and stale small-table stats cause scans after growth; use indexes by default.
       // Connections cache stats; reload after deleting them.

@@ -120,6 +120,34 @@ it.effect("drops planner statistics a database already has", () => {
   );
 });
 
+it.effect("applies every setup pragma to the write connection", () => {
+  const tempDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-sqlite-pragmas-"));
+  const persistence = SqlitePersistence.layerFromPath(NodePath.join(tempDir, "state.sqlite")).pipe(
+    Layer.provide(NodeServices.layer),
+  );
+
+  return Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const pragma = (name: string) =>
+      sql
+        .unsafe<Record<string, unknown>>(`PRAGMA ${name}`)
+        .pipe(Effect.map((rows) => rows[0]?.[name]));
+    assert.strictEqual(
+      (yield* sql.unsafe<{ timeout: number }>("PRAGMA busy_timeout"))[0]?.timeout,
+      5000,
+    );
+    assert.strictEqual(yield* pragma("foreign_keys"), 1);
+    assert.strictEqual(yield* pragma("journal_mode"), "wal");
+    assert.strictEqual(yield* pragma("synchronous"), 1);
+    assert.strictEqual(yield* pragma("temp_store"), 2);
+    assert.strictEqual(yield* pragma("cache_size"), -64000);
+    assert.strictEqual(yield* pragma("mmap_size"), 268435456);
+  }).pipe(
+    Effect.provide(persistence),
+    Effect.ensuring(Effect.sync(() => NodeFS.rmSync(tempDir, { recursive: true, force: true }))),
+  );
+});
+
 it.effect("upgrades an existing database on a read-write worker connection", () => {
   const tempDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-sqlite-upgrade-"));
   const dbPath = NodePath.join(tempDir, "state.sqlite");
