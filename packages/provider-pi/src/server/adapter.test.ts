@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
+import * as NodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   CheckpointId,
@@ -3225,9 +3226,11 @@ describe("PiAdapterV2", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
-      const oldFile = `${dir}/original.jsonl`;
-      const unrelatedFile = `${dir}/unrelated.jsonl`;
-      const currentFile = `${dir}/current.jsonl`;
+      // The fork scans the session directory with `path.join`, which normalizes the
+      // separator on Windows too: build these the same way so both sides match.
+      const oldFile = NodePath.join(dir, "original.jsonl");
+      const unrelatedFile = NodePath.join(dir, "unrelated.jsonl");
+      const currentFile = NodePath.join(dir, "current.jsonl");
       const header = { type: "session", version: 3 };
       const writeSession = (file: string, entries: ReadonlyArray<unknown>) =>
         fs.writeFileString(
