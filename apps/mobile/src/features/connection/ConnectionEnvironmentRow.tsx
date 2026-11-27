@@ -140,7 +140,7 @@ export function ConnectionEnvironmentRow(props: {
               tintColorClassName="accent-foreground-muted"
             />
             <Text
-              className="min-w-0 flex-shrink text-base font-t3-bold leading-snug text-foreground"
+              className="min-w-0 flex-shrink text-base font-t3-medium leading-snug text-foreground"
               numberOfLines={1}
             >
               {props.environment.environmentLabel}
@@ -235,7 +235,7 @@ export function ConnectionEnvironmentRow(props: {
           {props.environment.isRelayManaged ? (
             <Text className="text-sm text-foreground-muted">
               {gt("Managed by {product}. Tunnel details update automatically.", {
-                product: "T3 Connect",
+                product: "M3 Connect",
               })}
             </Text>
           ) : (
@@ -293,7 +293,7 @@ export function ConnectionEnvironmentRow(props: {
             <View className="flex-row justify-end gap-2">
               {props.environment.isRelayManaged ? null : (
                 <Pressable
-                  className="min-h-[42px] flex-1 flex-row items-center justify-center gap-1.5 rounded-[14px] bg-primary px-3.5 py-2.5 active:opacity-70"
+                  className="min-h-[42px] flex-1 flex-row items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 py-2.5 active:opacity-70"
                   onPress={handleSave}
                 >
                   <SymbolView
@@ -312,7 +312,7 @@ export function ConnectionEnvironmentRow(props: {
                 accessibilityRole="button"
                 accessibilityLabel={gt("Reconnect environment")}
                 accessibilityState={{ disabled: !enabled }}
-                className="h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-input-border bg-input active:opacity-70 disabled:opacity-40"
+                className="h-[42px] w-[42px] items-center justify-center rounded-full border border-input-border bg-input active:opacity-70 disabled:opacity-40"
                 disabled={!enabled}
                 onPress={() => props.onReconnect(props.environment.environmentId)}
               >
@@ -327,7 +327,7 @@ export function ConnectionEnvironmentRow(props: {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={gt("Remove environment")}
-                className="h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-danger-border bg-danger active:opacity-70"
+                className="h-[42px] w-[42px] items-center justify-center rounded-full border border-danger-border bg-danger active:opacity-70"
                 onPress={() => props.onRemove(props.environment.environmentId)}
               >
                 <SymbolView

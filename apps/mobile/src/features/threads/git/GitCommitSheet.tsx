@@ -115,7 +115,7 @@ export function GitCommitSheet(props: GitCommitSheetProps) {
       <View>
         <View className="flex-row items-center justify-between gap-2 pb-2">
           <View className="flex-1 gap-1">
-            <Text className="text-base font-t3-bold text-foreground">
+            <Text className="tm-title-strong text-lg text-foreground">
               <T>Changed files</T>
             </Text>
             <Text className="text-xs text-foreground-muted">

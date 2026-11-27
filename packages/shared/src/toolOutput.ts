@@ -254,7 +254,7 @@ export function previewRecordingIdFromToolItem(item: {
 }
 
 /**
- * Compact structured result a T3 MCP tool carries on its turn item.
+ * Compact structured result an M3 MCP tool carries on its turn item.
  * Preserves every metadata field clients, summaries, and attachment retention read.
  */
 export function compactT3McpToolOutput(

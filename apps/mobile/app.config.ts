@@ -37,12 +37,12 @@ const DEVELOPMENT_ASSETS = {
   iosIcon: fromRepoRoot(BRAND_ASSET_PATHS.developmentIconComposerProject),
   splashIcon: fromRepoRoot(BRAND_ASSET_PATHS.developmentIosIconPng),
   androidAdaptiveForeground,
-  androidAdaptiveBackgroundColor: "#347FF8",
-  androidAdaptiveBackgroundImage: "./assets/android-icon-background-dev.png",
+  androidAdaptiveBackgroundColor: "#222423",
+  androidAdaptiveBackgroundImage: undefined,
   androidSplashIcon: "./assets/android-splash-icon-dev.png",
   androidMonochromeIcon: "./assets/android-icon-mark.png",
   androidNotificationIcon: "./assets/android-notification-icon.png",
-  androidNotificationColor: "#00639B",
+  androidNotificationColor: "#B5A68C",
 } as const;
 
 const PREVIEW_ASSETS = {
@@ -50,12 +50,12 @@ const PREVIEW_ASSETS = {
   iosIcon: fromRepoRoot(BRAND_ASSET_PATHS.nightlyIconComposerProject),
   splashIcon: fromRepoRoot(BRAND_ASSET_PATHS.nightlyIosIconPng),
   androidAdaptiveForeground,
-  androidAdaptiveBackgroundColor: "#111533",
-  androidAdaptiveBackgroundImage: "./assets/android-icon-background-nightly.png",
+  androidAdaptiveBackgroundColor: "#222423",
+  androidAdaptiveBackgroundImage: undefined,
   androidSplashIcon: "./assets/android-splash-icon-nightly.png",
   androidMonochromeIcon: "./assets/android-icon-mark.png",
   androidNotificationIcon: "./assets/android-notification-icon.png",
-  androidNotificationColor: "#7565C7",
+  androidNotificationColor: "#B5A68C",
 } as const;
 
 const RELEASE_ASSETS = {
@@ -63,12 +63,12 @@ const RELEASE_ASSETS = {
   iosIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIconComposerProject),
   splashIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIosIconPng),
   androidAdaptiveForeground,
-  androidAdaptiveBackgroundColor: "#000000",
+  androidAdaptiveBackgroundColor: "#222423",
   androidAdaptiveBackgroundImage: undefined,
   androidSplashIcon: "./assets/android-splash-icon-prod.png",
   androidMonochromeIcon: "./assets/android-icon-mark.png",
   androidNotificationIcon: "./assets/android-notification-icon.png",
-  androidNotificationColor: "#FFFFFF",
+  androidNotificationColor: "#B5A68C",
 } as const;
 
 const VARIANT_CONFIG = {
@@ -118,11 +118,56 @@ const iosBundleIdentifier = isIosPersonalTeamBuild
   ? personalTeamBundleIdentifier!
   : variant.iosBundleIdentifier;
 
-const dmSansFonts = {
-  regular: "@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf",
-  medium: "@expo-google-fonts/dm-sans/500Medium/DMSans_500Medium.ttf",
-  bold: "@expo-google-fonts/dm-sans/700Bold/DMSans_700Bold.ttf",
+// Tech Moca type: Saira Condensed for display chrome, Inter for body, JetBrains Mono for labels.
+// Static families are registered by name so React Native can pick one weight at a time.
+const themeFonts = {
+  interRegular: "@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
+  interMedium: "@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf",
+  interBold: "@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf",
+  sairaLight: "@expo-google-fonts/saira-condensed/300Light/SairaCondensed_300Light.ttf",
+  sairaMedium: "@expo-google-fonts/saira-condensed/500Medium/SairaCondensed_500Medium.ttf",
+  jetBrainsRegular: "@expo-google-fonts/jetbrains-mono/400Regular/JetBrainsMono_400Regular.ttf",
+  jetBrainsBold: "@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf",
 } as const;
+
+const themeAndroidFonts = [
+  {
+    fontFamily: "Inter-Regular",
+    fontDefinitions: [{ path: themeFonts.interRegular, weight: 400 }],
+  },
+  {
+    fontFamily: "Inter-Medium",
+    fontDefinitions: [{ path: themeFonts.interMedium, weight: 500 }],
+  },
+  {
+    fontFamily: "Inter-Bold",
+    // Android picks fallback glyphs (such as Vietnamese) at the requested weight, so bold text
+    // asks for 700; the 400 entry lets a relative bold step (Typeface.BOLD) land on 700 too.
+    fontDefinitions: [
+      { path: themeFonts.interBold, weight: 400 },
+      { path: themeFonts.interBold, weight: 700 },
+    ],
+  },
+  {
+    fontFamily: "SairaCondensed-Light",
+    fontDefinitions: [{ path: themeFonts.sairaLight, weight: 300 }],
+  },
+  {
+    fontFamily: "SairaCondensed-Medium",
+    fontDefinitions: [{ path: themeFonts.sairaMedium, weight: 500 }],
+  },
+  {
+    fontFamily: "JetBrainsMono-Regular",
+    fontDefinitions: [{ path: themeFonts.jetBrainsRegular, weight: 400 }],
+  },
+  {
+    fontFamily: "JetBrainsMono-Bold",
+    fontDefinitions: [
+      { path: themeFonts.jetBrainsBold, weight: 400 },
+      { path: themeFonts.jetBrainsBold, weight: 700 },
+    ],
+  },
+];
 
 const widgetsPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
   "expo-widgets",
@@ -290,11 +335,12 @@ const config: ExpoConfig = {
     },
   },
   android: {
-    icon: variant.assets.appIcon,
     package: variant.androidPackage,
     ...(repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE
       ? { googleServicesFile: repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE }
       : {}),
+    // Legacy launchers (API < 26) get the full-bleed graphite square; adaptive ones get the layers.
+    icon: "./assets/android-icon-legacy.png",
     adaptiveIcon: {
       backgroundColor: variant.assets.androidAdaptiveBackgroundColor,
       ...(variant.assets.androidAdaptiveBackgroundImage
@@ -325,28 +371,18 @@ const config: ExpoConfig = {
       "expo-font",
       {
         ios: {
-          fonts: [dmSansFonts.regular, dmSansFonts.medium, dmSansFonts.bold],
+          fonts: [
+            themeFonts.interRegular,
+            themeFonts.interMedium,
+            themeFonts.interBold,
+            themeFonts.sairaLight,
+            themeFonts.sairaMedium,
+            themeFonts.jetBrainsRegular,
+            themeFonts.jetBrainsBold,
+          ],
         },
         android: {
-          fonts: [
-            {
-              fontFamily: "DMSans-Regular",
-              fontDefinitions: [{ path: dmSansFonts.regular, weight: 400 }],
-            },
-            {
-              fontFamily: "DMSans-Medium",
-              fontDefinitions: [{ path: dmSansFonts.medium, weight: 500 }],
-            },
-            {
-              fontFamily: "DMSans-Bold",
-              // Android picks fallback glyphs (such as Vietnamese) at the requested weight, so bold text
-              // asks for 700; the 400 entry lets a relative bold step (Typeface.BOLD) land on 700 too.
-              fontDefinitions: [
-                { path: dmSansFonts.bold, weight: 400 },
-                { path: dmSansFonts.bold, weight: 700 },
-              ],
-            },
-          ],
+          fonts: themeAndroidFonts,
         },
       },
     ],

@@ -122,9 +122,9 @@ function withPopupMenuStyles(config) {
       {
         $: { name: "AppPopupMenu.TextAppearance", parent: "TextAppearance.AppCompat.Menu" },
         item: [
-          { _: "15sp", $: { name: "android:textSize" } },
+          { _: "14sp", $: { name: "android:textSize" } },
           { _: "@color/popup_menu_item_text", $: { name: "android:textColor" } },
-          { _: "@font/xml_dm_sans_regular", $: { name: "android:fontFamily" } },
+          { _: "@font/xml_inter_regular", $: { name: "android:fontFamily" } },
         ],
       },
       {
@@ -133,9 +133,12 @@ function withPopupMenuStyles(config) {
           parent: "TextAppearance.AppCompat.Widget.PopupMenu.Header",
         },
         item: [
-          { _: "15sp", $: { name: "android:textSize" } },
+          // Tech Moca menu headers are mono caps eyebrows.
+          { _: "11sp", $: { name: "android:textSize" } },
+          { _: "0.08", $: { name: "android:letterSpacing" } },
+          { _: "true", $: { name: "android:textAllCaps" } },
           { _: "@color/popup_menu_item_text", $: { name: "android:textColor" } },
-          { _: "@font/xml_dm_sans_regular", $: { name: "android:fontFamily" } },
+          { _: "@font/xml_jet_brains_mono_regular", $: { name: "android:fontFamily" } },
         ],
       },
       // The framework default only carries subMenuArrow.

@@ -347,7 +347,7 @@ export function inferenceServerRequestHealth(
   };
 }
 
-// Measurements T3's gateway records per request.
+// Measurements M3's gateway records per request.
 
 /** Shown for a measurement the gateway did not record; an en dash, as product copy avoids em dashes. */
 const MISSING_MEASUREMENT = "–";
@@ -464,7 +464,7 @@ export const LOCAL_COMPUTE_WINDOW_LABELS: Readonly<Record<InferenceUsageWindow, 
 };
 
 export const LOCAL_COMPUTE_FOOTNOTE =
-  "Measured by T3's gateway; tools calling your server directly are not counted.";
+  "Measured by M3's gateway; tools calling your server directly are not counted.";
 
 export interface LocalComputeTotals {
   readonly requests: number;

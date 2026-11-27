@@ -17,16 +17,41 @@ export interface ButtonProps {
   readonly size?: "default" | "compact";
 }
 
-const TONE_CLASS_NAMES = {
-  contrast: ["bg-foreground", "text-screen"],
-  primary: ["bg-primary", "text-primary-foreground"],
-  secondary: ["bg-secondary", "text-secondary-foreground"],
-  danger: ["bg-danger", "text-danger-foreground"],
-  text: ["bg-transparent", "text-primary-text"],
+const TONES = {
+  contrast: {
+    container: "bg-foreground",
+    label: "text-screen",
+    icon: "accent-screen",
+    weight: "font-t3-bold",
+  },
+  primary: {
+    container: "bg-primary",
+    label: "text-primary-foreground",
+    icon: "accent-primary-foreground",
+    weight: "font-t3-bold",
+  },
+  secondary: {
+    container: "border border-border bg-transparent",
+    label: "text-foreground",
+    icon: "accent-icon",
+    weight: "font-t3-medium",
+  },
+  danger: {
+    container: "bg-danger",
+    label: "text-danger-foreground",
+    icon: "accent-danger-foreground",
+    weight: "font-t3-bold",
+  },
+  text: {
+    container: "bg-transparent",
+    label: "text-primary-text",
+    icon: "accent-primary-text",
+    weight: "font-t3-medium",
+  },
 } as const;
 
 export function Button(props: ButtonProps) {
-  const [containerClassName, labelClassName] = TONE_CLASS_NAMES[props.tone ?? "secondary"];
+  const tone = TONES[props.tone ?? "secondary"];
   const disabled = Boolean(props.disabled || props.loading);
   return (
     <Pressable
@@ -40,7 +65,7 @@ export function Button(props: ButtonProps) {
         "flex-row items-center justify-center gap-2 rounded-full active:opacity-70",
         props.size === "compact" ? "min-h-10 px-5" : "min-h-[44px] px-6 android:min-h-[48px]",
         props.fullWidth ? "w-full" : "self-start",
-        disabled ? "bg-subtle-strong" : containerClassName,
+        disabled ? "bg-subtle-strong" : tone.container,
       )}
     >
       {props.loading ? (
@@ -49,15 +74,14 @@ export function Button(props: ButtonProps) {
         <SymbolView
           name={props.icon}
           size={18}
-          tintColorClassName={
-            disabled ? "accent-foreground-muted" : labelClassName.replace("text-", "accent-")
-          }
+          tintColorClassName={disabled ? "accent-foreground-muted" : tone.icon}
         />
       ) : null}
       <AppText
         className={cn(
-          "min-w-0 shrink text-center font-t3-medium",
-          disabled ? "text-foreground-muted" : labelClassName,
+          "min-w-0 shrink text-center",
+          tone.weight,
+          disabled ? "text-foreground-muted" : tone.label,
         )}
       >
         {props.label}

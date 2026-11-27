@@ -3,6 +3,7 @@ import {
   T3_CHAT_THEME,
   T3_CODE_LIGHT_THEME_COLORS,
   T3_CODE_DARK_THEME_COLORS,
+  TECH_MOCA_THEME,
   getThemeColorsForAppearance,
   MOBILE_DEFAULT_THEME_ID,
   MOBILE_THEME_IDS as SHARED_MOBILE_THEME_IDS,
@@ -16,6 +17,9 @@ import {
 } from "@t3tools/shared/themePreview";
 
 export const DEFAULT_MOBILE_THEME_ID = MOBILE_DEFAULT_THEME_ID;
+/** Fresh installs open on the house theme; the picker still offers every other theme. */
+export const DEFAULT_MOBILE_THEME_SELECTION = "tech-moca" as const satisfies MobileThemeId;
+export const DEFAULT_MOBILE_THEME_MODE = "dark" as const satisfies MobileThemeMode;
 export const MOBILE_THEME_IDS = [...SHARED_MOBILE_THEME_IDS, "material-you"] as const;
 export type MobileThemeId = SharedMobileThemeId | "material-you";
 export type MobileThemeAppearance = ThemeAppearance;
@@ -26,9 +30,12 @@ export const MOBILE_THEME_OPTIONS: ReadonlyArray<{
   readonly id: MobileThemeId;
   readonly label: string;
 }> = [
+  { id: DEFAULT_MOBILE_THEME_SELECTION, label: TECH_MOCA_THEME.label },
   { id: DEFAULT_MOBILE_THEME_ID, label: "M3 Code" },
   { id: "material-you", label: "Material You" },
-  ...BUILT_IN_THEMES.map((theme) => ({ id: theme.id as MobileThemeId, label: theme.label })),
+  ...BUILT_IN_THEMES.filter((theme) => theme.id !== DEFAULT_MOBILE_THEME_SELECTION).map(
+    (theme) => ({ id: theme.id as MobileThemeId, label: theme.label }),
+  ),
 ];
 
 export type MobileThemeVariable = keyof ReturnType<typeof createMobileThemeVariables>;
@@ -37,11 +44,13 @@ export type MobileThemeVariables = Readonly<Record<MobileThemeVariable, string>>
 function normalizeMobileThemeId(value: unknown): MobileThemeId {
   return typeof value === "string" && (MOBILE_THEME_IDS as readonly string[]).includes(value)
     ? (value as MobileThemeId)
-    : DEFAULT_MOBILE_THEME_ID;
+    : DEFAULT_MOBILE_THEME_SELECTION;
 }
 
 export function normalizeMobileThemeMode(value: unknown): MobileThemeMode {
-  return value === "light" || value === "dark" || value === "system" ? value : "system";
+  return value === "light" || value === "dark" || value === "system"
+    ? value
+    : DEFAULT_MOBILE_THEME_MODE;
 }
 
 export function resolveMobileThemeIds(preferences: {
@@ -499,7 +508,20 @@ export function getMobileThemeVariables(
         : undefined,
   );
 
-  return overrides ? ({ ...baseVariables, ...overrides } as MobileThemeVariables) : baseVariables;
+  // Tech Moca's action is neutral ink, so the skill chip on a user bubble needs its own tone
+  // (dim mono label) instead of reusing the bubble's body text.
+  const themeOverrides =
+    themeId === "tech-moca"
+      ? ({
+          "--color-user-bubble-skill-foreground": themeColorToNativeColor(colors.textMuted),
+        } satisfies Partial<MobileThemeVariables>)
+      : null;
+
+  return {
+    ...baseVariables,
+    ...themeOverrides,
+    ...overrides,
+  } as MobileThemeVariables;
 }
 
 export function getMobileThemePreviewColors(

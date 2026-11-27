@@ -4,16 +4,16 @@ import type { ViewStyle } from "react-native";
 import { m, type MessageResolver } from "../../i18n/messages";
 import type { MobileThemeVariables } from "../../lib/mobileTheme";
 
-export const THREAD_LIST_V2_MONO_FONT = "monospace";
+export const THREAD_LIST_V2_MONO_FONT = "JetBrainsMono-Regular";
 export const THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME = "px-3 py-2.5";
 export const THREAD_LIST_V2_ROW_DIVIDERS = false;
 export const THREAD_LIST_V2_SIDEBAR_ROW_STYLE = {
-  borderRadius: 20,
+  borderRadius: 6,
   paddingHorizontal: 12,
   paddingVertical: 10,
 } satisfies ViewStyle;
 export const THREAD_LIST_V2_SIDEBAR_ROW_CONTAINER_STYLE = {
-  borderRadius: 20,
+  borderRadius: 6,
   overflow: "hidden",
   marginHorizontal: 8,
   marginVertical: 2,
@@ -40,6 +40,9 @@ export function getThreadListV2RowAppearance(
   const style: ViewStyle = {
     backgroundColor: selected ? selectedBackgroundColor : backgroundColor,
     borderRadius: THREAD_LIST_V2_SIDEBAR_ROW_STYLE.borderRadius,
+    // Tech Moca marks the open row with a 2 px inset bar; the transparent border keeps rows still.
+    borderLeftWidth: 2,
+    borderLeftColor: selected ? theme["--color-primary"] : "transparent",
   };
   const swipeContainerStyle = THREAD_LIST_V2_SIDEBAR_ROW_CONTAINER_STYLE;
 

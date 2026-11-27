@@ -22,6 +22,7 @@ import { cn } from "../../../../lib/cn";
 import { useAppearancePreferences } from "../AppearancePreferencesProvider";
 
 const THEME_NAMES: Readonly<Record<string, string>> = {
+  "tech-moca": msg("Tech Moca", { $context: "color theme name" }),
   grove: msg("Grove", { $context: "color theme name" }),
   ocean: msg("Ocean", { $context: "color theme name" }),
   ember: msg("Ember", { $context: "color theme name" }),
@@ -177,7 +178,7 @@ function ThemeCard(props: {
   );
 
   return (
-    <View className="min-w-36 flex-1 basis-[47%] gap-3 rounded-[24px] border border-border bg-grouped-card px-2 py-4">
+    <View className="min-w-36 flex-1 basis-[47%] gap-3 rounded-xl border border-border-subtle bg-grouped-card px-2 py-4">
       <Pressable
         accessibilityHint={gt("Sets both light and dark appearances")}
         accessibilityLabel={gt("{theme} theme", { theme: props.label })}
@@ -186,7 +187,7 @@ function ThemeCard(props: {
           disabled: props.disabled,
           selected: props.lightSelected && props.darkSelected,
         }}
-        className="absolute inset-0 rounded-[24px] active:bg-subtle"
+        className="absolute inset-0 rounded-xl active:bg-subtle"
         disabled={props.disabled}
         onPress={props.onSelectBoth}
       />
@@ -195,7 +196,7 @@ function ThemeCard(props: {
         {choice("dark", props.darkSelected)}
       </View>
       <Text
-        className="min-w-0 flex-1 px-1 text-lg font-t3-medium"
+        className="tm-title-strong min-w-0 flex-1 px-1 text-lg"
         numberOfLines={1}
         pointerEvents="none"
       >
@@ -238,8 +239,8 @@ function ModePreview(props: { readonly mode: MobileThemeMode; readonly themeIds:
   const { themeVariablesByAppearance } = useAppearancePreferences();
   if (props.mode === "system") {
     return (
-      <View className="h-24 w-14 self-center rounded-[16px] border-[1.5px] border-border bg-drawer p-[3px]">
-        <View className="flex-1 flex-row overflow-hidden rounded-[11px]">
+      <View className="h-24 w-14 self-center rounded-lg border border-border bg-drawer p-[3px]">
+        <View className="flex-1 flex-row overflow-hidden rounded-md">
           <ScopedTheme theme={getMobileUniwindThemeName(props.themeIds.light, "light")}>
             <ScopedVariables variables={themeVariablesByAppearance.light}>
               <PreviewPane compact />
@@ -258,8 +259,8 @@ function ModePreview(props: { readonly mode: MobileThemeMode; readonly themeIds:
 
   return (
     <ScopedTheme theme={getMobileUniwindThemeName(props.themeIds[props.mode], props.mode)}>
-      <View className="h-24 w-14 self-center rounded-[16px] border-[1.5px] border-border bg-drawer p-[3px]">
-        <View className="flex-1 flex-row overflow-hidden rounded-[11px]">
+      <View className="h-24 w-14 self-center rounded-lg border border-border bg-drawer p-[3px]">
+        <View className="flex-1 flex-row overflow-hidden rounded-md">
           <ScopedVariables variables={themeVariablesByAppearance[props.mode]}>
             <PreviewPane />
           </ScopedVariables>
@@ -285,10 +286,10 @@ function ModeCard(props: {
       accessibilityRole="radio"
       accessibilityState={{ checked: props.selected, disabled: props.disabled }}
       className={cn(
-        "min-w-0 flex-1 gap-2 rounded-[24px] p-2 active:scale-[0.97]",
+        "min-w-0 flex-1 gap-2 rounded-xl p-2 active:scale-[0.97]",
         props.selected
           ? "border-2 border-primary bg-subtle"
-          : "border border-border bg-grouped-card",
+          : "border border-border-subtle bg-grouped-card",
       )}
       disabled={props.disabled}
       onPress={props.onPress}
@@ -308,7 +309,7 @@ function ModeCard(props: {
 }
 
 function SectionLabel({ children }: { readonly children: string }) {
-  return <Text className="px-2 text-sm font-t3-medium text-foreground-muted">{children}</Text>;
+  return <Text className="tm-eyebrow px-2 text-3xs text-foreground-muted">{children}</Text>;
 }
 
 export function ThemeAppearanceSection() {

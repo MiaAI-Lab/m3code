@@ -44,9 +44,11 @@ describe("mobileThemeRuntime", () => {
     const firstDisabled = disabled[0];
     expect(firstDisabled?.kind).toBe("update-text-variables");
     if (firstDisabled?.kind === "update-text-variables") {
-      expect(firstDisabled.variables["--font-sans"]).toBe("DMSans-Regular");
-      expect(firstDisabled.variables["--font-medium"]).toBe("DMSans-Medium");
-      expect(firstDisabled.variables["--font-bold"]).toBe("DMSans-Bold");
+      expect(firstDisabled.variables["--font-sans"]).toBe("Inter-Regular");
+      expect(firstDisabled.variables["--font-medium"]).toBe("Inter-Medium");
+      expect(firstDisabled.variables["--font-bold"]).toBe("Inter-Bold");
+      expect(firstDisabled.variables["--font-display"]).toBe("SairaCondensed-Light");
+      expect(firstDisabled.variables["--font-mono"]).toBe("JetBrainsMono-Regular");
     }
   });
 });

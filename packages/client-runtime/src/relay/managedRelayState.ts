@@ -135,14 +135,14 @@ export function createManagedRelaySession(input: ManagedRelaySessionInput): Mana
           try: () => readCachedClerkToken(nowMillis),
           catch: (cause) =>
             new ManagedRelaySessionError({
-              ...translatableMessage(msg("Could not obtain the T3 Connect session token.")),
+              ...translatableMessage(msg("Could not obtain the M3 Connect session token.")),
               cause,
             }),
         }).pipe(Effect.timeoutOption(CLERK_TOKEN_READ_TIMEOUT_MS));
         if (Option.isSome(token)) return token.value;
       }
       return yield* new ManagedRelaySessionError(
-        translatableMessage(msg("Timed out obtaining the T3 Connect session token.")),
+        translatableMessage(msg("Timed out obtaining the M3 Connect session token.")),
       );
     }),
   };
@@ -197,14 +197,14 @@ function readSessionClerkToken(
       (token): token is string => Boolean(token),
       () =>
         new ManagedRelaySessionError(
-          translatableMessage(msg("The T3 Connect session token is unavailable.")),
+          translatableMessage(msg("The M3 Connect session token is unavailable.")),
         ),
     ),
   );
 }
 
 const SIGN_IN_BEFORE = {
-  deregister: msg("Sign in to T3 Connect before deregistering an environment."),
+  deregister: msg("Sign in to M3 Connect before deregistering an environment."),
 };
 
 function requireSessionClerkToken(
@@ -238,7 +238,7 @@ function requireClerkToken(
   if (!session || session.accountId !== accountId) {
     return Effect.fail(
       new ManagedRelaySessionError(
-        translatableMessage(msg("Sign in to T3 Connect before loading relay data.")),
+        translatableMessage(msg("Sign in to M3 Connect before loading relay data.")),
       ),
     );
   }
@@ -257,7 +257,7 @@ function describeManagedRelayFailure(cause: Cause.Cause<unknown>): {
   }
   return error instanceof Error
     ? { ...messageFromError(error), traceId }
-    : { ...translatableMessage(msg("Could not load T3 Connect data.")), traceId };
+    : { ...translatableMessage(msg("Could not load M3 Connect data.")), traceId };
 }
 
 export function readManagedRelaySnapshotState<A>(

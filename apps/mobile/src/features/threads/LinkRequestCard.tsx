@@ -134,9 +134,9 @@ function PendingLinkRequest(props: {
   };
 
   return (
-    <View className="mb-3 gap-3 rounded-[20px] border border-border bg-card-alt p-4">
+    <View className="mb-3 gap-3 rounded-xl border border-border bg-card-alt p-4">
       <View className="gap-1">
-        <Text className="font-t3-bold text-base text-foreground">
+        <Text className="tm-title-strong text-lg text-foreground">
           {item.url === undefined
             ? gt("Link a machine to this environment")
             : gt("Link {target} to this environment", { target: linkDestination(item.url) })}
@@ -506,7 +506,7 @@ function MachineRow(props: {
     : machine.connected
       ? null
       : machine.connectOnly
-        ? "T3 Connect"
+        ? "M3 Connect"
         : gt("Not connected");
   return (
     <Pressable

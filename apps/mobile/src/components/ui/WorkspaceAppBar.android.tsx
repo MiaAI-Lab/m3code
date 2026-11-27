@@ -189,7 +189,11 @@ function WorkspaceAppBarView(props: WorkspaceAppBarProps) {
                   style={{ height: ACTION_SIZE }}
                 >
                   {props.titleContent ?? (
-                    <AppText textRole="title" numberOfLines={1} className="text-header-foreground">
+                    <AppText
+                      textRole="title"
+                      numberOfLines={1}
+                      className="tm-title-strong text-header-foreground"
+                    >
                       {props.title}
                     </AppText>
                   )}

@@ -191,7 +191,7 @@ function MediaVideoPlayerContent(props: MediaVideoPlayerProps) {
   const frame = (
     <View
       collapsable={false}
-      className="overflow-hidden rounded-[10px] bg-black"
+      className="overflow-hidden rounded-xl bg-black"
       style={[
         props.expanded
           ? { flex: 1 }

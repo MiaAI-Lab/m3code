@@ -1,6 +1,6 @@
 import type { InferenceServerId, InferenceServerSnapshot, ThreadId } from "@t3tools/contracts";
 
-/** A thread's request held in T3's gateway queue for a busy inference server. */
+/** A thread's request held in M3's gateway queue for a busy inference server. */
 export interface ThreadInferenceWait {
   readonly serverId: InferenceServerId;
   readonly serverName: string;
