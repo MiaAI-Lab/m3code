@@ -12,7 +12,7 @@ import * as Electron from "electron";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
 import * as DesktopEarlyElectronStartup from "./DesktopEarlyElectronStartup.ts";
-import { trimmedString } from "./DesktopConfig.ts";
+import { trimmedString, trimmedStringWithLegacy } from "./DesktopConfig.ts";
 import { resolveDesktopAppBranding } from "./DesktopEnvironment.ts";
 import {
   renderUrlHandlerDesktopEntry,
@@ -45,6 +45,13 @@ export const resolveEarlyLinuxElectronOptionsFromProcess = (
     homeDirectory,
     joinPath: NodePath.posix.join,
     readFileString: (path) => NodeFS.readFileSync(path, "utf8"),
+    pathExists: (path) => {
+      try {
+        return typeof NodeFS.existsSync === "function" && NodeFS.existsSync(path);
+      } catch {
+        return false;
+      }
+    },
   });
 
 export class DesktopPreReadyElectronOptions extends Context.Service<
@@ -57,7 +64,10 @@ export class DesktopPreReadyElectronOptions extends Context.Service<
 
 const LinuxDesktopEntryConfig = Config.all({
   xdgDataHome: trimmedString("XDG_DATA_HOME"),
-  launcherPath: trimmedString("T3CODE_DESKTOP_LAUNCHER_PATH"),
+  launcherPath: trimmedStringWithLegacy(
+    "M3CODE_DESKTOP_LAUNCHER_PATH",
+    "T3CODE_DESKTOP_LAUNCHER_PATH",
+  ),
   appImagePath: trimmedString("APPIMAGE"),
   // electron-updater sets this on the AppImage it relaunches after installing an update.
   relaunchedByUpdater: trimmedString("APPIMAGE_SILENT_INSTALL"),
@@ -83,6 +93,13 @@ export const make = Effect.gen(function* () {
         joinPath: NodePath.posix.join,
         commandLine: Electron.app.commandLine,
         readFileString: (path) => NodeFS.readFileSync(path, "utf8"),
+        pathExists: (path) => {
+          try {
+            return typeof NodeFS.existsSync === "function" && NodeFS.existsSync(path);
+          } catch {
+            return false;
+          }
+        },
         writeFileString: (path, value) => {
           NodeFS.mkdirSync(NodePath.posix.dirname(path), { recursive: true });
           NodeFS.writeFileSync(path, value, "utf8");

@@ -7,6 +7,7 @@ import type {
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -149,10 +150,23 @@ const make = Effect.fn("desktop.environment.make")(function* (
       : input.platform === "darwin"
         ? path.join(homeDirectory, "Library", "Application Support")
         : Option.getOrElse(config.xdgConfigHome, () => path.join(homeDirectory, ".config"));
+  const maybeFileSystem = yield* Effect.serviceOption(FileSystem.FileSystem);
+  const m3Dir = path.join(homeDirectory, ".m3");
+  const legacyT3Dir = path.join(homeDirectory, ".t3");
+  const existingPaths = new Set<string>();
+  if (Option.isNone(config.t3Home) && Option.isSome(maybeFileSystem)) {
+    const fs = maybeFileSystem.value;
+    if (yield* fs.exists(m3Dir).pipe(Effect.orElseSucceed(() => false))) {
+      existingPaths.add(m3Dir);
+    } else if (yield* fs.exists(legacyT3Dir).pipe(Effect.orElseSucceed(() => false))) {
+      existingPaths.add(legacyT3Dir);
+    }
+  }
   const baseDir = resolveDesktopBaseDir({
     homeDirectory,
     joinPath: path.join,
     t3Home: config.t3Home,
+    pathExists: (candidate) => existingPaths.has(candidate),
   });
   const rootDir = path.resolve(input.dirname, "../../..");
   const appRoot = input.isPackaged ? input.appPath : rootDir;
@@ -215,7 +229,7 @@ const make = Effect.fn("desktop.environment.make")(function* (
     branding,
     displayName,
     appUserModelId: Option.getOrElse(config.appUserModelIdOverride, () =>
-      isDevelopment ? "com.t3tools.t3code.dev" : "com.t3tools.t3code",
+      isDevelopment ? "com.m3code.m3code.dev" : "com.m3code.m3code",
     ),
     linuxDesktopEntryName: resolveLinuxDesktopEntryName(isDevelopment),
     linuxApplicationsDir,
