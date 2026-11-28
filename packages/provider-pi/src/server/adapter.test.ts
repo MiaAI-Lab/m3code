@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
+// @effect-diagnostics-next-line nodeBuiltinImport:off - fixture paths must match the fork's own `path.join`.
 import * as NodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
@@ -4307,6 +4308,136 @@ describe("PiAdapterV2", () => {
         (event) => event.type === "subagent.updated" && event.subagent.status === "interrupted",
       );
       assert.isTrue(interruptedCard.type === "subagent.updated");
+      const settledSignal = yield* takeEvent(
+        (event) => event.type === "background_work.updated" && !event.pending,
+      );
+      assert.isTrue(settledSignal.type === "background_work.updated");
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("marks OMP runs reported as failed (exit N) failed", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_fail",
+        toolName: "task",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "Spawned agent `GammaWriter`." }],
+          details: {
+            results: [],
+            progress: [{ index: 0, id: "GammaWriter", agent: "sonic", status: "pending" }],
+            async: { state: "running", jobId: "GammaWriter", type: "task" },
+          },
+        },
+      });
+      yield* takeEvent((event) => event.type === "background_work.updated");
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_wait",
+        toolName: "wait",
+        isError: false,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: '<task-result id="GammaWriter" agent="sonic" status="failed (exit 1)" duration="1.0s">\n<output>\nboom\n</output>\n</task-result>',
+            },
+          ],
+          details: {},
+        },
+      });
+      const settledCard = yield* takeEvent(
+        (event) => event.type === "subagent.updated" && event.subagent.status !== "running",
+      );
+      assert.isTrue(
+        settledCard.type === "subagent.updated" && settledCard.subagent.status === "failed",
+      );
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("releases a mixed OMP task call once its background spawn reports", () =>
+    Effect.gen(function* () {
+      const fake = yield* makeFakePi;
+      const { runtime, takeEvent } = yield* openRuntime(
+        fake,
+        "default",
+        THREAD_ID,
+        SESSION_ID,
+        undefined,
+        undefined,
+        undefined,
+        OMP_FLAVOR_OVERRIDE,
+      );
+      const providerThread = yield* runtime.ensureThread({
+        threadId: THREAD_ID,
+        modelSelection: modelSelection("default"),
+        runtimePolicy,
+      });
+      yield* startTurn(runtime, providerThread);
+      yield* fake.takeRequest("prompt");
+      yield* fake.emit({ type: "agent_start" });
+      // The blocking spawn settled inline in `results`; only the background one will report.
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_omp_mixed",
+        toolName: "task",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "Inline done; 1 background agent spawned." }],
+          details: {
+            results: [
+              {
+                id: "Inline",
+                agent: "sonic",
+                assignment: "Inline work",
+                exitCode: 0,
+                output: "ok",
+              },
+            ],
+            progress: [
+              { index: 0, id: "Inline", agent: "sonic", status: "completed" },
+              { index: 1, id: "Background", agent: "sonic", status: "running" },
+            ],
+            async: { state: "running", jobId: "Background", type: "task" },
+          },
+        },
+      });
+      yield* takeEvent((event) => event.type === "background_work.updated" && event.pending);
+      yield* fake.emit({
+        type: "tool_execution_end",
+        toolCallId: "call_wait",
+        toolName: "wait",
+        isError: false,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: '<task-result id="Background" agent="sonic" status="completed" duration="1.0s">\n<output>\ndone\n</output>\n</task-result>',
+            },
+          ],
+          details: {},
+        },
+      });
       const settledSignal = yield* takeEvent(
         (event) => event.type === "background_work.updated" && !event.pending,
       );

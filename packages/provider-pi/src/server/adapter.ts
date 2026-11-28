@@ -1663,9 +1663,17 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           const progress = recordField(details, "progress");
           const members = new Map<string, string>();
           if (ompTaskDetails) {
+            // A mixed call's blocking spawns settle inline in `results`; no
+            // `<task-result>` follows for them, so tracking them would never settle.
+            const settledIds = new Set(
+              (Array.isArray(results) ? results : []).flatMap((result) => {
+                const id = recordString(result, "id");
+                return id === undefined ? [] : [id];
+              }),
+            );
             for (const entry of Array.isArray(progress) ? progress : []) {
               const id = recordString(entry, "id");
-              if (id === undefined) continue;
+              if (id === undefined || settledIds.has(id)) continue;
               members.set(id, recordString(entry, "agent") ?? asyncId);
             }
             // A spawn without progress ids can only settle by its job id.
@@ -1716,12 +1724,12 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           if (trackedEntry === undefined) continue;
           const [runId, tracked] = trackedEntry;
           const output = /<output>([\s\S]*?)<\/output>/.exec(body)?.[1]?.trim() ?? "";
-          // Every parsed block settles its member: completed/failed/error map to
-          // themselves; anything else (aborted, cancelled, timeout, …) to interrupted.
+          // Every parsed block settles its member. omp writes failures as
+          // `failed (exit N)` or `merge failed`; anything else (cancelled, …) is interrupted.
           const settled =
             status === "completed"
               ? "completed"
-              : status === "failed" || status === "error"
+              : status.startsWith("failed") || status === "merge failed" || status === "error"
                 ? "failed"
                 : "interrupted";
           yield* emitSubagent(tracked.turn, tracked.toolCallId, id, {
