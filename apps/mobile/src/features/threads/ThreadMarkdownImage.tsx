@@ -155,7 +155,7 @@ export function ThreadMarkdownImageView(props: {
             accessibilityHint={
               mediaActions.actions.length > 0 ? gt("Touch and hold for media actions") : undefined
             }
-            className="items-center justify-center rounded-[10px] bg-md-code-bg"
+            className="items-center justify-center rounded-xl bg-md-code-bg"
             style={frameStyle}
           >
             {failed ? (
@@ -190,7 +190,7 @@ export function ThreadMarkdownImageView(props: {
                   }),
                 )
               }
-              className="overflow-hidden rounded-[10px] bg-md-code-bg"
+              className="overflow-hidden rounded-xl bg-md-code-bg"
               style={{ alignSelf: "flex-start", ...frameStyle }}
             >
               {props.format === "svg" ? (

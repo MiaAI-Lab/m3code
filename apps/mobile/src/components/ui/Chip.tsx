@@ -26,7 +26,7 @@ export function Chip(props: {
 }) {
   const small = props.size === "small";
   const layout = cn(
-    "flex-row items-center gap-1.5 rounded-2xl px-3",
+    "flex-row items-center gap-1.5 rounded-full px-3",
     small ? "py-1" : "min-h-8 py-1.5",
   );
   const iconColor = props.selected ? "accent-primary-foreground" : "accent-icon-muted";

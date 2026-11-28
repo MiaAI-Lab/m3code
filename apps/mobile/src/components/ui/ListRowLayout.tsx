@@ -73,7 +73,7 @@ export function ListRowLayout({
       {detail && !stackDetail ? (
         <AppText
           textRole="footnote"
-          className="max-w-[40%] shrink text-right text-foreground-muted"
+          className="max-w-[40%] shrink text-right font-mono text-2xs text-foreground-muted"
           numberOfLines={1}
           ellipsizeMode="middle"
         >

@@ -6,8 +6,8 @@ export type { FormFieldProps, FormSectionProps } from "./FormSection.types";
 
 export function FormSection(props: FormSectionProps) {
   return (
-    <View className="gap-3 rounded-[20px] bg-card p-4">
-      <Text className="text-base font-t3-medium text-foreground">{props.title}</Text>
+    <View className="gap-3 rounded-xl border border-border-subtle bg-card p-4">
+      <Text className="tm-eyebrow text-3xs text-foreground-muted">{props.title}</Text>
       {props.children}
     </View>
   );
@@ -16,8 +16,8 @@ export function FormSection(props: FormSectionProps) {
 export function FormField({ label, ...props }: FormFieldProps) {
   return (
     <>
-      {label ? <Text className="text-sm text-foreground-secondary">{label}</Text> : null}
-      <TextInput {...props} className="rounded-xl bg-sheet-solid" />
+      {label ? <Text className="tm-label text-3xs text-foreground-muted">{label}</Text> : null}
+      <TextInput {...props} className="rounded-lg bg-card" />
     </>
   );
 }

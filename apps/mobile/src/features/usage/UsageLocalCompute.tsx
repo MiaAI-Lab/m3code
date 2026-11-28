@@ -29,7 +29,7 @@ const WINDOW_OPTIONS = LOCAL_COMPUTE_WINDOWS.map((window) => ({
   accessibilityLabel: `Past ${LOCAL_COMPUTE_WINDOW_LABELS[window]}`,
 }));
 
-/** Requests T3's gateway sent to the user's own inference servers, as on web's Usage page. */
+/** Requests M3's gateway sent to the user's own inference servers, as on web's Usage page. */
 export function UsageLocalCompute(props: {
   readonly environments: ReadonlyArray<{
     readonly environmentId: EnvironmentId;
@@ -114,7 +114,7 @@ function LocalComputeGroups(props: {
     return (
       <Text className="p-4 text-center text-sm text-foreground-muted">
         {summary !== null
-          ? `No requests through T3 in the last ${LOCAL_COMPUTE_WINDOW_LABELS[props.window]}.`
+          ? `No requests through M3 in the last ${LOCAL_COMPUTE_WINDOW_LABELS[props.window]}.`
           : result._tag === "Failure"
             ? "This environment could not report local compute usage."
             : "Loading…"}

@@ -152,10 +152,7 @@ function ProjectGroupLabel(props: {
         size={18}
         workspaceRoot={props.project.workspaceRoot}
       />
-      <Text
-        className="flex-1 text-xs font-t3-medium tracking-[0.5px] uppercase text-foreground-muted"
-        numberOfLines={1}
-      >
+      <Text className="tm-eyebrow shrink text-3xs text-foreground-muted" numberOfLines={1}>
         {props.project.title}
       </Text>
       {props.environmentLabel ? (
@@ -199,7 +196,7 @@ function ArchivedThreadRow(props: {
     <View
       className={`flex-row items-center gap-3 bg-grouped-card px-4 py-3 ${props.isLast ? "" : "border-b border-separator"}`}
     >
-      <View className="h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-subtle">
+      <View className="h-[34px] w-[34px] items-center justify-center rounded-lg bg-subtle">
         <SymbolView
           name="archivebox.fill"
           size={15}
@@ -211,7 +208,7 @@ function ArchivedThreadRow(props: {
       <View className="min-w-0 flex-1 gap-1">
         <View className="flex-row items-center gap-2">
           <Text
-            className="min-w-0 flex-1 text-base font-t3-bold leading-snug text-foreground"
+            className="min-w-0 flex-1 text-base font-t3-medium leading-snug text-foreground"
             numberOfLines={1}
           >
             {props.thread.title}
@@ -275,7 +272,7 @@ function ArchivedThreadRow(props: {
 function ArchiveError(props: { readonly message: string; readonly onRetry: () => void }) {
   const gt = useGT();
   return (
-    <View className="rounded-[20px] border border-danger-border bg-danger p-4">
+    <View className="rounded-xl border border-danger-border bg-danger p-4">
       <Text className="text-base font-t3-bold text-danger-foreground">
         <T>Could not load every archive</T>
       </Text>

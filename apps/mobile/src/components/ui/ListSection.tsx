@@ -23,7 +23,7 @@ export function ListSection(props: {
             }
           >
             {props.titleIcon}
-            <Text textRole="footnote" className="shrink font-t3-medium text-foreground-muted">
+            <Text textRole="footnote" className="tm-eyebrow shrink text-3xs text-foreground-muted">
               {props.title}
             </Text>
           </View>
@@ -31,7 +31,7 @@ export function ListSection(props: {
         </View>
       ) : null}
       <View
-        className="overflow-hidden border-continuous bg-grouped-card"
+        className="overflow-hidden border-continuous border border-border-subtle bg-grouped-card"
         style={{
           borderRadius:
             Platform.OS === "android" ? MOBILE_SHAPE.group.android : MOBILE_SHAPE.group.ios,

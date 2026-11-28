@@ -41,8 +41,8 @@ export function PendingApprovalCard(props: PendingApprovalCardProps) {
   const disabled = !canRespond || props.respondingApprovalId === props.approval.requestId;
   const [explanationOpen, setExplanationOpen] = useState(false);
   return (
-    <View className="gap-2.5 rounded-[20px] border border-border bg-card-alt p-4">
-      <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
+    <View className="gap-2.5 rounded-xl border border-border bg-card-alt p-4">
+      <Text className="tm-eyebrow text-3xs text-foreground-muted">
         <T>Approval needed</T>
       </Text>
       <Text className="font-t3-bold text-lg text-foreground">

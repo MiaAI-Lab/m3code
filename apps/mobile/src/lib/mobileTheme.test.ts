@@ -13,11 +13,16 @@ import {
   readGeneratedMobileThemeVariables,
 } from "./mobileTheme.test-support";
 import { getMobileThemeRuntimeVariables } from "./mobileThemeVariables";
+import { getMobileUniwindThemeName } from "./mobileThemeRuntime";
 
 import {
   createMobileThemeSelectionPatch,
   createMobileThemeVariables,
   DEFAULT_MOBILE_THEME_ID,
+  DEFAULT_MOBILE_THEME_SELECTION,
+  MOBILE_THEME_OPTIONS,
+  getMobileThemePreviewColors,
+  normalizeMobileThemeMode,
   flattenThemeColor,
   getMobileThemeVariables,
   resolveMobileThemeIds,
@@ -224,6 +229,27 @@ describe("mobile themes", () => {
     }
   });
 
+  it("opens a fresh install on the Tech Moca house theme in its dark appearance", () => {
+    expect(DEFAULT_MOBILE_THEME_SELECTION).toBe("tech-moca");
+    expect(MOBILE_THEME_OPTIONS[0]?.id).toBe("tech-moca");
+    expect(resolveMobileThemeIds({})).toEqual({ light: "tech-moca", dark: "tech-moca" });
+    expect(normalizeMobileThemeMode(undefined)).toBe("dark");
+    expect(normalizeMobileThemeMode("system")).toBe("system");
+  });
+
+  it.each(["light", "dark"] as const)(
+    "serves the generated Tech Moca %s theme to Uniwind",
+    (appearance) => {
+      expect(getMobileUniwindThemeName("tech-moca", appearance)).toBe(`tech-moca-${appearance}`);
+      expect(readGeneratedMobileThemeVariables(`tech-moca-${appearance}`)).toEqual(
+        getMobileThemeVariables("tech-moca", appearance),
+      );
+      expect(getMobileThemePreviewColors("tech-moca", appearance).canvas).toBe(
+        appearance === "dark" ? "#141414" : "#ece9e2",
+      );
+    },
+  );
+
   it("migrates one theme choice to both appearances and preserves independent choices", () => {
     expect(resolveMobileThemeIds({ themeId: "grove" })).toEqual({
       light: "grove",
@@ -233,7 +259,7 @@ describe("mobile themes", () => {
       resolveMobileThemeIds({ themeId: "grove", lightThemeId: "iris", darkThemeId: "ocean" }),
     ).toEqual({ light: "iris", dark: "ocean" });
     expect(resolveMobileThemeIds({ themeId: "grove", lightThemeId: "missing" })).toEqual({
-      light: DEFAULT_MOBILE_THEME_ID,
+      light: DEFAULT_MOBILE_THEME_SELECTION,
       dark: "grove",
     });
   });

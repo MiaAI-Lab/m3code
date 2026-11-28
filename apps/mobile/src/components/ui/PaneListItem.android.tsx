@@ -10,8 +10,8 @@ export function PaneListItem(props: PaneListItemProps) {
       accessibilityRole="button"
       accessibilityState={{ selected: props.selected }}
       className={cn(
-        "mt-1 min-h-12 justify-center rounded-[20px] px-3 py-2 active:bg-subtle",
-        props.selected && "bg-subtle-strong",
+        "mt-1 min-h-12 justify-center rounded-md border-l-2 border-transparent px-3 py-2 active:bg-subtle",
+        props.selected && "border-primary bg-subtle-strong",
       )}
       onPress={props.onPress}
     >

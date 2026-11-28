@@ -200,7 +200,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
         onPress={props.onToggleCollapsed}
         className="min-h-10 flex-1 flex-row items-center gap-2 active:opacity-70"
       >
-        <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
+        <Text className="tm-eyebrow text-3xs text-foreground-muted">
           <T>User input needed</T>
         </Text>
         <Text className="font-sans text-xs text-foreground-muted">
@@ -237,7 +237,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
       pointerEvents={props.collapsed ? "none" : "auto"}
       accessibilityElementsHidden={props.collapsed}
       importantForAccessibility={props.collapsed ? "no-hide-descendants" : "auto"}
-      className="overflow-hidden gap-2.5 rounded-[20px] border border-border bg-card-alt p-4"
+      className="overflow-hidden gap-2.5 rounded-xl border border-border bg-card-alt p-4"
       style={cardAnimatedStyle}
     >
       <View className="flex-row items-start gap-2">
@@ -248,7 +248,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
           className="flex-1 flex-row items-start gap-2"
         >
           <View className="flex-1 gap-2.5">
-            <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
+            <Text className="tm-eyebrow text-3xs text-foreground-muted">
               <T>User input needed</T>
             </Text>
             <Text className="font-t3-bold text-lg text-foreground">
@@ -288,7 +288,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
           return (
             <View key={question.id} className="gap-2 pt-1">
               <Text
-                className="font-t3-bold text-xs uppercase tracking-[1px] text-foreground-muted"
+                className="tm-eyebrow text-3xs text-foreground-muted"
                 style={proseDirectionStyle(question.header, setDirection)}
               >
                 {question.header}

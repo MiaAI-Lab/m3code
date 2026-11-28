@@ -57,14 +57,14 @@ export function CompactBrandTitle(
       <Text
         allowFontScaling={props.allowFontScaling}
         maxFontSizeMultiplier={BRAND_MAX_FONT_SCALE}
-        className="font-t3-medium text-foreground-muted"
-        style={{ fontSize: 21 * scale, letterSpacing: -0.5 * scale }}
+        className="tm-title-strong uppercase tracking-caps text-foreground-muted"
+        style={{ fontSize: 21 * scale }}
       >
         {WORDMARK_SUFFIX}
       </Text>
       {showStage ? (
         <View
-          className="rounded-full bg-subtle px-1.5 py-0.5"
+          className="rounded-full border border-border-subtle bg-subtle px-1.5 py-0.5"
           style={
             Platform.OS === "android"
               ? { paddingHorizontal: 5.25 * scale, paddingVertical: 1.75 * scale }
@@ -74,8 +74,8 @@ export function CompactBrandTitle(
           <Text
             allowFontScaling={props.allowFontScaling}
             maxFontSizeMultiplier={BRAND_MAX_FONT_SCALE}
-            className="font-t3-bold text-foreground-muted uppercase"
-            style={{ fontSize: 9 * scale, letterSpacing: 0.9 * scale }}
+            className="tm-label text-foreground-muted"
+            style={{ fontSize: 9 * scale }}
           >
             {stageLabel}
           </Text>

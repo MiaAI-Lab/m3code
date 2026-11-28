@@ -17,7 +17,7 @@ interface ThreadKey {
   readonly threadId: ThreadId;
 }
 
-/** Measured numbers for the thread's latest request through T3's gateway, read when the sheet opens. */
+/** Measured numbers for the thread's latest request through M3's gateway, read when the sheet opens. */
 export function ThreadLastInferenceRequest(props: ThreadKey) {
   const hasServers = useAtomValue(inferenceAtoms.hasInferenceServersAtom(props.environmentId));
   const canRead = useAtomValue(
@@ -50,7 +50,7 @@ function LastRequest(props: ThreadKey) {
             {observation}
           </Text>
         ))}
-        <Text className="text-xs text-foreground-muted">Measured by T3&apos;s gateway</Text>
+        <Text className="text-xs text-foreground-muted">Measured by M3&apos;s gateway</Text>
       </View>
     </>
   );

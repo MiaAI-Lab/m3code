@@ -244,7 +244,7 @@ function PairingForm({
             <View
               collapsable={false}
               className={cn(
-                "overflow-hidden rounded-[26px] border-continuous border bg-grouped-card",
+                "overflow-hidden rounded-xl border-continuous border bg-grouped-card",
                 pairingConnectionError ? "border-danger-foreground" : "border-transparent",
               )}
             >
@@ -312,7 +312,7 @@ function PairingScanCard(props: {
       disabled={props.cameraActive}
       onPress={props.onScanPress}
       className={cn(
-        "overflow-hidden rounded-[26px] border-continuous",
+        "overflow-hidden rounded-xl border-continuous",
         light ? "bg-white" : "bg-black",
       )}
       style={{ height: SCAN_CARD_HEIGHT }}
@@ -413,7 +413,7 @@ function T3ConnectSection() {
         />
       ) : (
         <ListRow
-          label={gt("Sign in to {product}", { product: "T3 Connect" })}
+          label={gt("Sign in to {product}", { product: "M3 Connect" })}
           description={gt("Reach your machines from anywhere, no network setup.")}
           disabled={!isLoaded}
           onPress={() => navigation.navigate("SettingsAuth")}

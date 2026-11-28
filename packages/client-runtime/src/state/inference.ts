@@ -100,7 +100,7 @@ export function createInferenceAtoms<R, E>(server: ServerEnvironmentAtoms<R, E>)
   );
 
   /**
-   * The latest reply T3's gateway stopped in a thread. `runKey` names the thread's latest run and
+   * The latest reply M3's gateway stopped in a thread. `runKey` names the thread's latest run and
    * its status, so the stop is read again when a run ends rather than polled.
    */
   const threadInferenceStopAtom = Atom.family(
