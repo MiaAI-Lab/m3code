@@ -8,8 +8,12 @@ import * as DateTime from "effect/DateTime";
  */
 export const QUEUE_HOLD_RETRY_DELAYS_MS = [30_000, 120_000, 300_000];
 
-export const queueHoldRetryEffectId = (threadId: ThreadId, attempt: number) =>
-  `effect:queue-hold-retry:${threadId}:${attempt}`;
+// The ladder restarts after each completed run, so a thread keeps its retries for later failures.
+export const queueHoldRetryEffectId = (
+  threadId: ThreadId,
+  lastCompletedRunId: RunId | undefined,
+  attempt: number,
+) => `effect:queue-hold-retry:${threadId}:${lastCompletedRunId ?? "none"}:${attempt}`;
 
 /**
  * The retry effect for a queue this command just held on a provider failure. The caller
@@ -19,12 +23,14 @@ export const queueHoldRetryEffectId = (threadId: ThreadId, attempt: number) =>
 export const queueHoldRetryEffect = (input: {
   readonly threadId: ThreadId;
   readonly failedRunId: RunId | undefined;
+  readonly lastCompletedRunId: RunId | undefined;
   readonly attempt: number;
   readonly now: DateTime.Utc;
-  readonly commandId: CommandId;
 }) => ({
-  id: queueHoldRetryEffectId(input.threadId, input.attempt),
-  commandId: input.commandId,
+  id: queueHoldRetryEffectId(input.threadId, input.lastCompletedRunId, input.attempt),
+  commandId: CommandId.make(
+    `command:system:${queueHoldRetryEffectId(input.threadId, input.lastCompletedRunId, input.attempt)}`,
+  ),
   threadId: input.threadId,
   request: {
     type: "queue-hold.retry" as const,

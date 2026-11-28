@@ -40,7 +40,6 @@ export class OrchestrationEffectExecutionError extends Schema.TaggedError<Orches
 
 const isOrchestrationEffectExecutionError = Schema.is(OrchestrationEffectExecutionError);
 
-
 /**
  * Do not apply this to `provider-turn.restart`: that compound effect also runs
  * detach and start. Swallowing a start failure that happens to mention
@@ -153,20 +152,14 @@ export const layerExecutor: Layer.Layer<
     // QUEUE_HOLD_RETRY_DELAYS_MS ladder (enqueued at the hold site in the orchestrator). Each
     // retry clears the holds the way a user's Resume does and starts the queue again; the
     // next failure re-holds and, past the ladder, waits for a person.
-    const retryHeldQueueStart = (input: {
-      readonly threadId: ThreadId;
-      readonly attempt: number;
-      readonly failedRunId: RunId | undefined;
-    }) =>
-      projectionStore.getHeldQueuedRuns(input.threadId).pipe(
+    const retryHeldQueueStart = (effect: { readonly id: string; readonly threadId: ThreadId }) =>
+      projectionStore.getHeldQueuedRuns(effect.threadId).pipe(
         Effect.flatMap((held) =>
           held.length > 0
             ? threads.dispatch({
                 type: "queue.resume" as const,
-                commandId: CommandId.make(
-                  `command:system:queue-hold-retry:${input.threadId}:${input.attempt}`,
-                ),
-                threadId: input.threadId,
+                commandId: CommandId.make(`command:resume:${effect.id}`),
+                threadId: effect.threadId,
               })
             : // The hold released while this retry waited: a user's Resume or a newer run got
               // there first, so there is nothing left to resume and the retry is a no-op.
@@ -270,11 +263,7 @@ export const layerExecutor: Layer.Layer<
               ),
             );
           case "queue-hold.retry":
-            return retryHeldQueueStart({
-              threadId: effect.threadId,
-              attempt: effect.request.attempt,
-              failedRunId: effect.request.failedRunId,
-            }).pipe(
+            return retryHeldQueueStart(effect).pipe(
               Effect.mapError(
                 (cause) =>
                   new OrchestrationEffectExecutionError({

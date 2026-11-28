@@ -2682,11 +2682,19 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           failedRun && failedRunId !== undefined && failedRun.id === failedRunId
             ? latestRootProviderFailure(failedRun, projection.turnItems)
             : null;
+        const lastCompletedRunId = projection.runs
+          .filter((run) => run.status === "completed")
+          .reduce<OrchestrationV2Run | undefined>(
+            (latest, run) => (latest === undefined || run.ordinal > latest.ordinal ? run : latest),
+            undefined,
+          )?.id;
         let holdRetries: number | undefined;
         if (providerFailed) {
           holdRetries = QUEUE_HOLD_RETRY_DELAYS_MS.length + 1;
           for (let attempt = 1; attempt <= QUEUE_HOLD_RETRY_DELAYS_MS.length; attempt++) {
-            const existing = yield* effectOutbox.get(queueHoldRetryEffectId(threadId, attempt));
+            const existing = yield* effectOutbox.get(
+              queueHoldRetryEffectId(threadId, lastCompletedRunId, attempt),
+            );
             if (Option.isNone(existing)) {
               holdRetries = attempt;
               break;
@@ -2706,11 +2714,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
                 queueHoldRetryEffect({
                   threadId,
                   failedRunId,
+                  lastCompletedRunId,
                   attempt: holdRetries,
                   now,
-                  commandId: CommandId.make(
-                    `command:system:queue-hold-retry:${threadId}:${holdRetries}`,
-                  ),
                 }),
               ]
             : [];

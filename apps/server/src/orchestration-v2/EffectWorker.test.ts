@@ -35,7 +35,7 @@ import * as TestClock from "effect/testing/TestClock";
 import * as CheckpointRollbackService from "./CheckpointRollbackService.ts";
 import * as CheckpointService from "./CheckpointService.ts";
 import * as EffectOutbox from "./EffectOutbox.ts";
-import { QUEUE_HOLD_RETRY_DELAYS_MS } from "./QueueHoldResume.ts";
+import { QUEUE_HOLD_RETRY_DELAYS_MS, queueHoldRetryEffectId } from "./QueueHoldResume.ts";
 import * as EffectWorker from "./EffectWorker.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as RunFinalizationService from "./RunFinalizationService.ts";
@@ -845,11 +845,13 @@ it.effect.each([3, 4])(
       );
     }),
 );
+
 const holdRetryEffect = (attempt: number): EffectOutbox.OrchestrationEffectV2 => {
-  const iso = new Date(0).toISOString();
+  const iso = DateTime.formatIso(DateTime.makeUnsafe(0));
+  const id = queueHoldRetryEffectId(threadId, undefined, attempt);
   return {
-    id: `effect:queue-hold-retry:${threadId}:${attempt}`,
-    commandId: CommandId.make(`command:queue-hold-retry:${threadId}:${attempt}`),
+    id,
+    commandId: CommandId.make(`command:system:${id}`),
     threadId,
     request: { type: "queue-hold.retry", attempt },
     status: "running",
@@ -910,13 +912,5 @@ const holdTest = (name: string, heldCount: number, expect: ReadonlyArray<string>
     }),
   );
 
-holdTest(
-  "a held-queue retry resumes the queue the way a user's Resume does",
-  1,
-  ["queue.resume"],
-);
-holdTest(
-  "a released hold on the final attempt stays silent",
-  0,
-  [],
-);
+holdTest("a held-queue retry resumes the queue the way a user's Resume does", 1, ["queue.resume"]);
+holdTest("a released hold on the final attempt stays silent", 0, []);
