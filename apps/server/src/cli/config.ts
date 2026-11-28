@@ -111,18 +111,41 @@ const tlsCaFlag = Flag.String("tls-ca").pipe(
   Flag.optional,
 );
 
+const envWithLegacy = <A>(
+  primary: Config.Config<A>,
+  legacy: Config.Config<A>,
+): Config.Config<Option.Option<A>> =>
+  Config.all([primary.pipe(Config.option), legacy.pipe(Config.option)]).pipe(
+    Config.map(([next, prev]) => Option.orElse(next, () => prev)),
+  );
+
+export const envHomeConfig = envWithLegacy(
+  Config.String("M3CODE_HOME"),
+  Config.String("T3CODE_HOME"),
+);
+
 const EnvServerConfig = Config.all({
-  logLevel: Config.LogLevel("T3CODE_LOG_LEVEL").pipe(Config.withDefault("Info")),
-  mode: Config.schema(ServerConfig.RuntimeMode, "T3CODE_MODE").pipe(
-    Config.option,
+  logLevel: envWithLegacy(
+    Config.LogLevel("M3CODE_LOG_LEVEL"),
+    Config.LogLevel("T3CODE_LOG_LEVEL"),
+  ).pipe(Config.map(Option.getOrElse(() => "Info" as const))),
+  mode: envWithLegacy(
+    Config.schema(ServerConfig.RuntimeMode, "M3CODE_MODE"),
+    Config.schema(ServerConfig.RuntimeMode, "T3CODE_MODE"),
+  ).pipe(Config.map(Option.getOrUndefined)),
+  port: envWithLegacy(Config.Port("M3CODE_PORT"), Config.Port("T3CODE_PORT")).pipe(
     Config.map(Option.getOrUndefined),
   ),
-  port: Config.Port("T3CODE_PORT").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  host: Config.String("T3CODE_HOST").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  t3Home: Config.String("T3CODE_HOME").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  host: envWithLegacy(Config.String("M3CODE_HOST"), Config.String("T3CODE_HOST")).pipe(
+    Config.map(Option.getOrUndefined),
+  ),
+  t3Home: envHomeConfig.pipe(Config.map(Option.getOrUndefined)),
   devUrl: Config.URL("VITE_DEV_SERVER_URL").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  devAllowedOrigins: Config.String("T3CODE_DEV_ALLOWED_ORIGINS").pipe(
-    Config.withDefault(""),
+  devAllowedOrigins: envWithLegacy(
+    Config.String("M3CODE_DEV_ALLOWED_ORIGINS"),
+    Config.String("T3CODE_DEV_ALLOWED_ORIGINS"),
+  ).pipe(
+    Config.map(Option.getOrElse(() => "")),
     Config.map((value) =>
       value
         .split(",")
@@ -130,59 +153,71 @@ const EnvServerConfig = Config.all({
         .filter((entry) => entry.length > 0),
     ),
   ),
-  noBrowser: Config.Boolean("T3CODE_NO_BROWSER").pipe(
-    Config.option,
+  noBrowser: envWithLegacy(
+    Config.Boolean("M3CODE_NO_BROWSER"),
+    Config.Boolean("T3CODE_NO_BROWSER"),
+  ).pipe(Config.map(Option.getOrUndefined)),
+  bootstrapFd: envWithLegacy(
+    Config.Int("M3CODE_BOOTSTRAP_FD"),
+    Config.Int("T3CODE_BOOTSTRAP_FD"),
+  ).pipe(Config.map(Option.getOrUndefined)),
+  autoBootstrapProjectFromCwd: envWithLegacy(
+    Config.Boolean("M3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD"),
+    Config.Boolean("T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD"),
+  ).pipe(Config.map(Option.getOrUndefined)),
+  logWebSocketEvents: envWithLegacy(
+    Config.Boolean("M3CODE_LOG_WS_EVENTS"),
+    Config.Boolean("T3CODE_LOG_WS_EVENTS"),
+  ).pipe(Config.map(Option.getOrUndefined)),
+  tailscaleServeEnabled: envWithLegacy(
+    Config.Boolean("M3CODE_TAILSCALE_SERVE"),
+    Config.Boolean("T3CODE_TAILSCALE_SERVE"),
+  ).pipe(Config.map(Option.getOrUndefined)),
+  tailscaleServePort: envWithLegacy(
+    Config.Port("M3CODE_TAILSCALE_SERVE_PORT"),
+    Config.Port("T3CODE_TAILSCALE_SERVE_PORT"),
+  ).pipe(Config.map(Option.getOrUndefined)),
+  lan: envWithLegacy(Config.Boolean("M3CODE_LAN"), Config.Boolean("T3CODE_LAN")).pipe(
     Config.map(Option.getOrUndefined),
   ),
-  bootstrapFd: Config.Int("T3CODE_BOOTSTRAP_FD").pipe(
-    Config.option,
+  mtlsEnabled: envWithLegacy(Config.Boolean("M3CODE_MTLS"), Config.Boolean("T3CODE_MTLS")).pipe(
     Config.map(Option.getOrUndefined),
   ),
-  autoBootstrapProjectFromCwd: Config.Boolean("T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD").pipe(
-    Config.option,
+  tlsCertPath: envWithLegacy(
+    Config.String("M3CODE_TLS_CERT"),
+    Config.String("T3CODE_TLS_CERT"),
+  ).pipe(Config.map(Option.getOrUndefined)),
+  tlsKeyPath: envWithLegacy(Config.String("M3CODE_TLS_KEY"), Config.String("T3CODE_TLS_KEY")).pipe(
     Config.map(Option.getOrUndefined),
   ),
-  logWebSocketEvents: Config.Boolean("T3CODE_LOG_WS_EVENTS").pipe(
-    Config.option,
+  tlsCaPath: envWithLegacy(Config.String("M3CODE_TLS_CA"), Config.String("T3CODE_TLS_CA")).pipe(
     Config.map(Option.getOrUndefined),
   ),
-  tailscaleServeEnabled: Config.Boolean("T3CODE_TAILSCALE_SERVE").pipe(
-    Config.option,
-    Config.map(Option.getOrUndefined),
-  ),
-  tailscaleServePort: Config.Port("T3CODE_TAILSCALE_SERVE_PORT").pipe(
-    Config.option,
-    Config.map(Option.getOrUndefined),
-  ),
-  lan: Config.Boolean("T3CODE_LAN").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  mtlsEnabled: Config.Boolean("T3CODE_MTLS").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  tlsCertPath: Config.String("T3CODE_TLS_CERT").pipe(
-    Config.option,
-    Config.map(Option.getOrUndefined),
-  ),
-  tlsKeyPath: Config.String("T3CODE_TLS_KEY").pipe(
-    Config.option,
-    Config.map(Option.getOrUndefined),
-  ),
-  tlsCaPath: Config.String("T3CODE_TLS_CA").pipe(Config.option, Config.map(Option.getOrUndefined)),
 });
 
-const DevAuthTokenConfig = Config.Redacted("T3CODE_DEV_AUTH_TOKEN").pipe(
-  Config.map((token) => Redacted.make(Redacted.value(token).trim())),
-  Config.mapEffect((token) =>
-    Redacted.value(token).length === 0 || Redacted.value(token).length >= 32
-      ? Effect.succeed(token)
-      : Effect.fail(
-          new Config.ConfigError(
-            new Schema.SchemaError(
-              new SchemaIssue.InvalidValue({
-                message: "T3CODE_DEV_AUTH_TOKEN must contain at least 32 characters.",
-              }),
+const DevAuthTokenConfig = envWithLegacy(
+  Config.Redacted("M3CODE_DEV_AUTH_TOKEN"),
+  Config.Redacted("T3CODE_DEV_AUTH_TOKEN"),
+).pipe(
+  Config.map(Option.map((token) => Redacted.make(Redacted.value(token).trim()))),
+  Config.mapEffect(
+    Option.match({
+      onNone: () => Effect.succeed(Option.none<Redacted.Redacted<string>>()),
+      onSome: (token) =>
+        Redacted.value(token).length === 0 || Redacted.value(token).length >= 32
+          ? Effect.succeed(Option.some(token))
+          : Effect.fail(
+              new Config.ConfigError(
+                new Schema.SchemaError(
+                  new SchemaIssue.InvalidValue({
+                    message:
+                      "M3CODE_DEV_AUTH_TOKEN (or T3CODE_DEV_AUTH_TOKEN) must contain at least 32 characters.",
+                  }),
+                ),
+              ),
             ),
-          ),
-        ),
+    }),
   ),
-  Config.option,
   Config.map(Option.filter((token) => Redacted.value(token).length > 0)),
   Config.map(Option.getOrUndefined),
 );

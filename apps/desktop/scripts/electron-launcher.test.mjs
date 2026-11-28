@@ -30,7 +30,7 @@ describe("electron development launcher", () => {
     );
     assert.include(
       environmentScript,
-      "if [ -z \"${T3CODE_COMMIT_HASH:-}\" ]; then export T3CODE_COMMIT_HASH='abc123'; fi",
+      "if [ -z \"${M3CODE_COMMIT_HASH:-}\" ]; then export M3CODE_COMMIT_HASH='abc123'; fi",
     );
     assert.notInclude(environmentScript, "\nexport VITE_DEV_SERVER_URL=");
   });

@@ -192,7 +192,19 @@ async function sendDesktopAppActivationRequest(input: {
 }
 
 const appEnvironment = Config.all({
-  t3Home: Config.String("T3CODE_HOME").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  t3Home: Config.all([
+    Config.String("M3CODE_HOME").pipe(Config.option),
+    Config.String("T3CODE_HOME").pipe(Config.option),
+  ]).pipe(
+    Config.map(([next, prev]) =>
+      Option.getOrUndefined(
+        Option.orElse(
+          Option.filter(next, (value) => value.trim().length > 0),
+          () => Option.filter(prev, (value) => value.trim().length > 0),
+        ),
+      ),
+    ),
+  ),
   sshConnection: Config.String("SSH_CONNECTION").pipe(Config.option),
   sshTty: Config.String("SSH_TTY").pipe(Config.option),
 });

@@ -175,7 +175,17 @@ export const triageCommand = Command.make("triage", {
     Effect.gen(function* () {
       // Triage is a user-facing feature: always the userdata state, never dev.
       const explicitBaseDir = Option.getOrUndefined(flags.baseDir);
-      const envHome = yield* Config.String("T3CODE_HOME").pipe(Config.option);
+      const envHome = yield* Config.all([
+        Config.String("M3CODE_HOME").pipe(Config.option),
+        Config.String("T3CODE_HOME").pipe(Config.option),
+      ]).pipe(
+        Config.map(([next, prev]) =>
+          Option.orElse(
+            Option.filter(next, (value) => value.trim().length > 0),
+            () => Option.filter(prev, (value) => value.trim().length > 0),
+          ),
+        ),
+      );
       const baseDir = yield* resolveBaseDir(explicitBaseDir ?? Option.getOrUndefined(envHome));
       const paths = yield* ServerConfig.deriveServerPaths(baseDir, undefined, {});
 

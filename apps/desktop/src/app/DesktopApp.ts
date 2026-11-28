@@ -77,7 +77,7 @@ export class DesktopDevelopmentBackendPortRequiredError extends Schema.TaggedErr
   {},
 ) {
   override get message(): string {
-    return "T3CODE_PORT is required in desktop development.";
+    return "M3CODE_PORT (or legacy T3CODE_PORT) is required in desktop development.";
   }
 }
 

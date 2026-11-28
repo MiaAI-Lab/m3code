@@ -52,6 +52,15 @@ export class DesktopBackendConfiguration extends Context.Service<
 >()("@t3tools/desktop/backend/DesktopBackendConfiguration") {}
 
 const DESKTOP_BACKEND_ENV_NAMES = [
+  "M3CODE_PORT",
+  "M3CODE_MODE",
+  "M3CODE_NO_BROWSER",
+  "M3CODE_HOST",
+  "M3CODE_DESKTOP_WS_URL",
+  "M3CODE_DESKTOP_LAN_HOST",
+  "M3CODE_DESKTOP_HTTPS_ENDPOINTS",
+  "M3CODE_TAILSCALE_SERVE",
+  "M3CODE_TAILSCALE_SERVE_PORT",
   "T3CODE_PORT",
   "T3CODE_MODE",
   "T3CODE_NO_BROWSER",
@@ -576,7 +585,7 @@ const resolveWslStartConfig = Effect.fn("desktop.backendConfiguration.resolveWsl
 
   const parentEnvWithoutT3Home: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(env)) {
-    if (key === "T3CODE_HOME") continue;
+    if (key === "M3CODE_HOME" || key === "T3CODE_HOME") continue;
     parentEnvWithoutT3Home[key] = value;
   }
   const wslEnv = mergeWslEnv(parentEnvWithoutT3Home.WSLENV, forwardedEnvNames);
