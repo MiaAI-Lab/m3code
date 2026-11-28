@@ -38,6 +38,7 @@ Labeling a same-repo PR `relay:preview` deploys stage `pr-<number>` (cleaned up 
 
 - **iOS TestFlight / App Store:** Merges to `main` publish compatible OTAs and build TestFlight prereleases (`testflight` profile at `3.0.0`). To cut an App Store build, dispatch **Mobile EAS Production** (`mode=build`, `profile=production`, `platform=ios`, explicit version). Before shipping `3.0.0` to the App Store, advance `build.testflight.env.T3CODE_MOBILE_VERSION` in `apps/mobile/eas.json` to the next unreleased major.
 - **Android APK mirror:** `.github/workflows/mobile-android-apk.yml` polls Google Play Alpha hourly and mirrors new Play-signed universal APKs to `android-beta-<build-number>` prereleases (`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`). Nightlies attach the latest internal-testing APK when available.
+- **Fork Android APK:** both workflows above are guarded to `pingdotgg/t3code`, so this fork publishes its own build by hand — prebuild `apps/mobile` with `APP_VARIANT=production`, `./gradlew app:assembleRelease`, then `gh release create mobile-m3-v<version>` with the universal APK attached. Raise `android.versionCode` in `apps/mobile/app.config.ts` with every release, or Android refuses to install it over the previous one.
 
 ## Windows payload topology and update validation
 
