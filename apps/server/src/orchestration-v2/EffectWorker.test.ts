@@ -15,6 +15,8 @@ import {
   ThreadId,
   VcsProcessExitError,
   type OrchestrationV2ThreadProjection,
+  type OrchestrationV2Run,
+  MessageId,
 } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
@@ -33,6 +35,7 @@ import * as TestClock from "effect/testing/TestClock";
 import * as CheckpointRollbackService from "./CheckpointRollbackService.ts";
 import * as CheckpointService from "./CheckpointService.ts";
 import * as EffectOutbox from "./EffectOutbox.ts";
+import { QUEUE_HOLD_RETRY_DELAYS_MS } from "./QueueHoldResume.ts";
 import * as EffectWorker from "./EffectWorker.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as RunFinalizationService from "./RunFinalizationService.ts";
@@ -93,6 +96,7 @@ function layerExecutorFor(input: {
   readonly interrupt?: ProviderTurnControlService.ProviderTurnControlServiceV2Shape["interrupt"];
   readonly rollback?: CheckpointRollbackService.CheckpointRollbackServiceV2Shape["execute"];
   readonly respond?: RuntimeRequestService.RuntimeRequestServiceV2["Service"]["respond"];
+  readonly heldQueuedRuns?: ReadonlyArray<OrchestrationV2Run>;
 }) {
   const record = (event: string) => Ref.update(input.events, (events) => [...events, event]);
   const layerDependencies = Layer.mergeAll(
@@ -175,7 +179,9 @@ function layerExecutorFor(input: {
       Layer.mergeAll(
         layerDependencies,
         Layer.mock(ThreadManagementService.ThreadManagementService)(input.threads ?? {}),
-        Layer.mock(ProjectionStore.ProjectionStoreV2)({}),
+        Layer.mock(ProjectionStore.ProjectionStoreV2)({
+          getHeldQueuedRuns: () => Effect.succeed(input.heldQueuedRuns ?? []),
+        }),
         ServerSettings.layerTest(
           input.continueAfterRestart === true ? { continueThreadsAfterServerUpdate: true } : {},
         ),
@@ -838,4 +844,79 @@ it.effect.each([3, 4])(
         processLossCount > 3 ? ["recover-child"] : ["dispatch", "recover-child"],
       );
     }),
+);
+const holdRetryEffect = (attempt: number): EffectOutbox.OrchestrationEffectV2 => {
+  const iso = new Date(0).toISOString();
+  return {
+    id: `effect:queue-hold-retry:${threadId}:${attempt}`,
+    commandId: CommandId.make(`command:queue-hold-retry:${threadId}:${attempt}`),
+    threadId,
+    request: { type: "queue-hold.retry", attempt },
+    status: "running",
+    attemptCount: 1,
+    availableAt: iso,
+    leaseOwner: "test-worker",
+    createdAt: iso,
+    updatedAt: iso,
+    completedAt: null,
+    lastError: null,
+  };
+};
+
+const holdTest = (name: string, heldCount: number, expect: ReadonlyArray<string>) =>
+  it.effect(name, () =>
+    Effect.gen(function* () {
+      const now = yield* DateTime.now;
+      const instanceId = ProviderInstanceId.make("codex");
+      const events = yield* Ref.make<ReadonlyArray<string>>([]);
+      const held: OrchestrationV2Run[] = [
+        {
+          id: RunId.make("run:held-queued"),
+          threadId,
+          ordinal: 1,
+          providerInstanceId: instanceId,
+          modelSelection: { instanceId, model: "model:test" },
+          providerThreadId,
+          userMessageId: MessageId.make("message:held-queued"),
+          rootNodeId: null,
+          activeAttemptId: null,
+          status: "queued" as const,
+          queueHeld: true,
+          requestedAt: now,
+          startedAt: null,
+          completedAt: null,
+          checkpointId: null,
+          contextHandoffId: null,
+        },
+      ];
+      const layer = layerExecutorFor({
+        events,
+        heldQueuedRuns: held.slice(0, heldCount),
+        threads: {
+          dispatch: (command) =>
+            Ref.update(events, (current) => [...current, command.type]).pipe(
+              Effect.as({ sequence: 1, storedEvents: [] }),
+            ),
+        },
+      });
+      const result = yield* Effect.gen(function* () {
+        const executor = yield* EffectWorker.OrchestrationEffectExecutorV2;
+        return yield* Effect.exit(
+          executor.execute(holdRetryEffect(QUEUE_HOLD_RETRY_DELAYS_MS.length)),
+        );
+      }).pipe(Effect.provide(layer));
+      assert.isTrue(Exit.isSuccess(result));
+      assert.deepEqual(yield* Ref.get(events), expect);
+    }),
+  );
+
+holdTest(
+  "a held-queue retry resumes the queue the way a user's Resume does",
+  1,
+  ["queue.resume"],
+);
+holdTest(
+  "a released hold on the final attempt stays silent",
+  0,
+  [],
 );
