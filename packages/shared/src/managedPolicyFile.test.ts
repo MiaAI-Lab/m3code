@@ -291,14 +291,14 @@ describe("readManagedPolicy", () => {
       // Anything the template does not write fails closed rather than being ignored.
       for (const [registry, reason] of [
         [policyKey([organization, dword("WebhookTasks", 2)]), "DWORD of 0 or 1"],
-        [policyKey([organization, text("MaxMode", "auto")]), "not a M3 Code policy value"],
-        [policyKey([organization], { Other: { x: 1 } }), "Other is not a M3 Code policy key"],
+        [policyKey([organization, text("MaxMode", "auto")]), "not an M3 Code policy value"],
+        [policyKey([organization], { Other: { x: 1 } }), "Other is not an M3 Code policy key"],
         [
           {
             ...policyKey([organization, dword("Clients", 1)], { Clients: { desktop: 1 } }),
             Clients: { values: [dword("desktop", 1)], subkeys: ["Nested"] },
           },
-          "Clients\\Nested is not a M3 Code policy key",
+          "Clients\\Nested is not an M3 Code policy key",
         ],
         [policyKey([organization, text("Settings", "{")]), "not valid JSON"],
         [policyKey([organization, dword("Clients", 2)]), "DWORD of 0 or 1"],
