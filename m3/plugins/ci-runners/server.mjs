@@ -45,8 +45,25 @@ function readJsonBody(req) {
   });
 }
 
+const LOOPBACK_HOST_RE = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
+
+// This sidecar has no auth of its own: only the plugin host proxy (which checks the admin
+// session and forwards no Origin/Sec-Fetch-* headers) may reach it. Browser-originated or
+// DNS-rebound requests straight to the loopback port could otherwise run deployments.
+function isDirectBrowserRequest(req) {
+  const host = req.headers.host ?? "";
+  return (
+    !LOOPBACK_HOST_RE.test(host) ||
+    req.headers.origin !== undefined ||
+    req.headers["sec-fetch-site"] !== undefined
+  );
+}
+
 export function createCiRunnersRequestHandler(store = new RunnerStore()) {
   return async function handleRequest(req, res) {
+    if (isDirectBrowserRequest(req)) {
+      return sendJson(res, 403, { ok: false, error: "Use the M3 plugin host proxy." });
+    }
     const method = req.method ?? "GET";
     const parsedUrl = new URL(req.url ?? "/", "http://127.0.0.1");
     const pathname = parsedUrl.pathname.replace(/\/+$/, "") || "/";

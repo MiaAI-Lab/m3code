@@ -209,10 +209,10 @@ export class PluginHostManager {
     }
 
     const port = await allocateLoopbackPort();
-    const resolvedCommand =
-      manifest.runtime.command === "node" && !("electron" in process.versions)
-        ? process.execPath
-        : manifest.runtime.command;
+    // Desktop runs the server as Electron with ELECTRON_RUN_AS_NODE=1, and GUI sessions often
+    // have no `node` on PATH, so reuse our own binary in node mode for "node" sidecars.
+    const useOwnNode = manifest.runtime.command === "node";
+    const resolvedCommand = useOwnNode ? process.execPath : manifest.runtime.command;
     const dataDir = NodePath.join(this.m3HomeDir, "userdata", "plugins", manifest.id);
     const child = NodeChildProcess.spawn(resolvedCommand, [...manifest.runtime.args], {
       cwd: rootDir,
@@ -225,6 +225,7 @@ export class PluginHostManager {
         M3_PLUGIN_DIR: rootDir,
         M3_HOME_DIR: this.m3HomeDir,
         M3_PLUGIN_DATA_DIR: dataDir,
+        ...(useOwnNode && "electron" in process.versions ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

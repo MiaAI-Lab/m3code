@@ -236,4 +236,55 @@ describe("m3/plugins/ci-runners", () => {
     assert.include(sshPlan.sshCommand, "deploy@10.0.0.42");
     assert.include(sshPlan.remoteInstallScript, "FORGEJO_INSTANCE_URL=https://git.internal");
   });
+
+  it("quotes shell metacharacters in the remote install script and rejects newlines", () => {
+    const plan = generateDeploymentPlan({
+      provider: "forgejo",
+      mode: "ssh",
+      sshHost: "10.0.0.42",
+      image: "img`id`",
+      workDir: "/srv/$(id)",
+    });
+    assert.include(plan.remoteInstallScript, "'img`id`'");
+    assert.notInclude(plan.remoteInstallScript, 'echo "');
+    assert.throws(
+      () => generateDeploymentPlan({ provider: "forgejo", workDir: "/srv\nEOF_UNIT\nid" }),
+      /control characters/,
+    );
+    assert.throws(
+      () => generateDeploymentPlan({ provider: "forgejo", labels: ["ok", "a\nb"] }),
+      /control characters/,
+    );
+  });
+
+  it("rejects requests that reach the sidecar without the plugin host proxy", async () => {
+    const tmpDir = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "m3-ci-direct-"));
+    const sidecar = await startServer({ port: 0, store: new RunnerStore(tmpDir) });
+    try {
+      const fromPage = await fetch(`http://127.0.0.1:${sidecar.port}/api/deploy/execute`, {
+        method: "POST",
+        headers: { origin: "https://evil.example" },
+        body: "{}",
+      });
+      assert.strictEqual(fromPage.status, 403);
+      const rebound = await new Promise<number>((resolve, reject) => {
+        NodeHttp.get(
+          {
+            host: "127.0.0.1",
+            port: sidecar.port,
+            path: "/api/runners",
+            headers: { host: "evil.example" },
+          },
+          (res) => {
+            res.resume();
+            resolve(res.statusCode ?? 0);
+          },
+        ).on("error", reject);
+      });
+      assert.strictEqual(rebound, 403);
+    } finally {
+      await closeServer(sidecar.server);
+      await NodeFSP.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

@@ -60,6 +60,11 @@ const LABELS = (process.env.M3_RUNNER_LABELS || "self-hosted,m3-runner")
   .map((s) => s.trim())
   .filter(Boolean);
 
+if (!TOKEN && !["127.0.0.1", "localhost", "::1"].includes(HOST)) {
+  console.error("[m3-runner-agent] M3_RUNNER_TOKEN is required when listening beyond loopback.");
+  process.exit(1);
+}
+
 const runs = new Map();
 const procs = new Map();
 
@@ -207,6 +212,12 @@ export function generateDeploymentPlan(input = {}) {
     typeof input.workDir === "string" && input.workDir.trim().length > 0
       ? input.workDir.trim()
       : "/var/lib/m3-runner";
+  // Values land in heredocs, unit files and YAML; a newline could end a heredoc early.
+  for (const [field, value] of Object.entries({ ...input, workDir })) {
+    if ([value].flat().some((v) => typeof v === "string" && /[\0-\x1f\x7f]/.test(v))) {
+      throw new Error(`Field "${field}" must not contain control characters.`);
+    }
+  }
   const instanceUrl =
     typeof input.instanceUrl === "string" && input.instanceUrl.trim().length > 0
       ? input.instanceUrl.trim().replace(/\/+$/, "")
@@ -302,9 +313,9 @@ export function generateDeploymentPlan(input = {}) {
     ...dockerRunArgv.map((arg) =>
       arg.length > 160
         ? "<M3_RUNNER_AGENT_SCRIPT>"
-        : /[\s"'$&|;]/.test(arg)
-          ? shellQuote(arg)
-          : arg,
+        : /^[A-Za-z0-9_/.:,=@%+-]+$/.test(arg)
+          ? arg
+          : shellQuote(arg),
     ),
   ].join(" ");
 
@@ -371,7 +382,7 @@ WantedBy=multi-user.target
     `  docker rm -f ${shellQuote(name)} >/dev/null 2>&1 || true`,
     `  ${displayDockerCmd.replace("<M3_RUNNER_AGENT_SCRIPT>", shellQuote(M3_RUNNER_AGENT_SCRIPT.replace(/^#!.*\n/, "")))}`,
     `else`,
-    `  echo "Docker not found on remote host; writing systemd unit to ${workDir}/${name}.service"`,
+    `  echo ${shellQuote(`Docker not found on remote host; writing systemd unit to ${workDir}/${name}.service`)}`,
     `  cat <<'EOF_UNIT' > ${shellQuote(`${workDir}/${name}.service`)}`,
     systemdUnit.trimEnd(),
     "EOF_UNIT",
