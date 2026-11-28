@@ -334,6 +334,7 @@ async function pathExists(target: string): Promise<boolean> {
 
 const MANAGED_SERVICE_ENV_NAMES = new Set([
   "PATH",
+  "M3CODE_HOME",
   "T3CODE_HOME",
   "T3_BOOT_SERVICE_UNIT",
   SERVICE_LAUNCHER_CONTEXT_ENV,
@@ -1585,11 +1586,10 @@ export interface LauncherOptions {
 }
 
 export async function main(options: LauncherOptions = {}): Promise<void> {
-  const baseDir =
-    options.baseDir ??
-    (process.env.M3CODE_HOME?.trim() || process.env.T3CODE_HOME?.trim() || undefined);
+  // Service units only ever write T3CODE_HOME; an ambient M3CODE_HOME must not redirect them.
+  const baseDir = options.baseDir ?? process.env.T3CODE_HOME;
   if (baseDir === undefined || baseDir.trim() === "") {
-    throw new Error("M3CODE_HOME (or T3CODE_HOME) is required by the M3 Code service launcher.");
+    throw new Error("T3CODE_HOME is required by the M3 Code service launcher.");
   }
   const output =
     options.logFile === undefined ? undefined : NodeFS.openSync(options.logFile, "a", 0o600);
@@ -1604,6 +1604,8 @@ export async function main(options: LauncherOptions = {}): Promise<void> {
     const managerEnvironment = {
       ...process.env,
       T3CODE_HOME: baseDir,
+      // The server prefers M3CODE_HOME, so pin it too or an inherited one picks another home.
+      M3CODE_HOME: baseDir,
       ...(options.serviceUnit === undefined ? {} : { [SERVICE_UNIT_ENV]: options.serviceUnit }),
     };
     const environment = await readServiceEnvironment(baseDir, managerEnvironment);

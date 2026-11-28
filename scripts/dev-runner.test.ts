@@ -141,8 +141,8 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
 
           assert.equal(env.VITE_HTTP_URL, undefined);
           assert.equal(env.VITE_WS_URL, undefined);
-          assert.equal(env.T3CODE_PORT, "13773");
-          assert.equal(env.T3CODE_SINGLE_ORIGIN_DEV, "1");
+          assert.equal(env.M3CODE_PORT, "13773");
+          assert.equal(env.M3CODE_SINGLE_ORIGIN_DEV, "1");
         }),
     );
 
@@ -182,7 +182,8 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
           devUrl: undefined,
         });
 
-        assert.equal(env.T3CODE_PORT, "13773");
+        assert.equal(env.M3CODE_PORT, "13773");
+        assert.equal(env.T3CODE_PORT, undefined);
         assert.equal(env.T3CODE_HOST, undefined);
         assert.equal(env.T3CODE_LAN, undefined);
       }),
@@ -514,7 +515,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
             devUrl: undefined,
           }).pipe(
             Effect.provideService(HostProcess.HomeDirectory, "/home/dev"),
-            Effect.map((env) => env.T3CODE_HOME),
+            Effect.map((env) => env.M3CODE_HOME),
           );
 
         assert.equal(yield* homeFor("~/t3-dev"), path.join("/home/dev", "t3-dev"));
@@ -648,7 +649,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
           const serve = tailscaleCalls.find((args) => args.includes("--bg"));
           assert.deepEqual(serve?.slice(-2), [
             `--https=${env?.PORT}`,
-            `http://127.0.0.1:${env?.T3CODE_PORT}`,
+            `http://127.0.0.1:${env?.M3CODE_PORT}`,
           ]);
         }),
       );
@@ -657,7 +658,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
         Effect.gen(function* () {
           const { env, tailscaleCalls } = yield* shareSpawned({ built: true, host: "::1" });
           const serve = tailscaleCalls.find((args) => args.includes("--bg"));
-          assert.equal(serve?.at(-1), `http://[::1]:${env?.T3CODE_PORT}`);
+          assert.equal(serve?.at(-1), `http://[::1]:${env?.M3CODE_PORT}`);
         }),
       );
 
@@ -666,7 +667,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
         Effect.gen(function* () {
           const { env, tailscaleCalls } = yield* shareSpawned({ built: true, host: "localhost" });
           const serve = tailscaleCalls.find((args) => args.includes("--bg"));
-          assert.equal(serve?.at(-1), `http://localhost:${env?.T3CODE_PORT}`);
+          assert.equal(serve?.at(-1), `http://localhost:${env?.M3CODE_PORT}`);
         }),
       );
 
@@ -780,7 +781,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
             ),
           );
 
-          return captured?.T3CODE_HOME;
+          return captured?.M3CODE_HOME;
         });
 
       it.effect("prefers an explicit --home-dir over the worktree default", () =>
@@ -805,7 +806,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
             cwd: root,
             ambientHome: "/home/user/.t3",
           });
-          assert.equal(home, path.join(path.resolve(root), ".t3"));
+          assert.equal(home, path.join(path.resolve(root), ".m3"));
         }).pipe(Effect.scoped),
       );
 
@@ -813,6 +814,8 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
         Effect.gen(function* () {
           const path = yield* Path.Path;
           const root = yield* makeWorktree;
+          // setup-worktree.ts writes its markers to .t3, so existing worktrees keep it.
+          NodeFS.mkdirSync(path.join(root, ".t3"));
           const home = yield* spawnedHome({
             t3Home: undefined,
             cwd: root,
@@ -827,6 +830,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
           const path = yield* Path.Path;
           const root = yield* makeWorktree;
           const home = path.join(root, "home");
+          NodeFS.mkdirSync(path.join(root, ".t3"));
           NodeFS.mkdirSync(path.join(home, ".t3", "userdata"), { recursive: true });
           NodeFS.writeFileSync(path.join(home, ".t3", "userdata", "statev2.sqlite"), "");
 

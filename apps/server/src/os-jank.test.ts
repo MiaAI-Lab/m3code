@@ -3,12 +3,19 @@ import { it as effectIt } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { CommandAvailability, WindowsShellEnvironment } from "@t3tools/shared/shell";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- Observe the existing synchronous shell probe without launching the user's login shell.
 import * as NodeChildProcess from "node:child_process";
 import * as NodeOS from "node:os";
 import { assert, it, vi } from "vite-plus/test";
 
-import { fixPath, hydratePosixHome, refreshWindowsPath } from "./os-jank.ts";
+import {
+  fixPath,
+  hydratePosixHome,
+  refreshWindowsPath,
+  resolveDefaultHomeBaseDir,
+} from "./os-jank.ts";
 
 vi.mock("node:child_process", { spy: true });
 
@@ -229,4 +236,26 @@ effectIt.effect("adds a directory an installer wrote to the registry after launc
 
     assert.deepEqual(env, { PATH: `C:\\Tools;C:\\Windows;${installed}` });
   }),
+);
+
+effectIt.effect("keeps a legacy ~/.t3 until ~/.m3 holds server state", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-default-home-" });
+    const m3 = path.join(home, ".m3");
+    const t3 = path.join(home, ".t3");
+
+    assert.equal(yield* resolveDefaultHomeBaseDir(home), m3);
+
+    yield* fs.makeDirectory(path.join(t3, "userdata"), { recursive: true });
+    assert.equal(yield* resolveDefaultHomeBaseDir(home), t3);
+
+    // Something else creating ~/.m3 (e.g. a plugin folder) must not switch homes.
+    yield* fs.makeDirectory(path.join(m3, "plugins"), { recursive: true });
+    assert.equal(yield* resolveDefaultHomeBaseDir(home), t3);
+
+    yield* fs.makeDirectory(path.join(m3, "userdata"));
+    assert.equal(yield* resolveDefaultHomeBaseDir(home), m3);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );

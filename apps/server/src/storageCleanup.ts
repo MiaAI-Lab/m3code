@@ -22,7 +22,7 @@ import type {
 } from "@t3tools/contracts";
 import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
 import { resolveWorktreeCleanup } from "@t3tools/shared/projectSettings";
-import { resolveWorktreeT3Home } from "@t3tools/shared/devHome";
+import { resolveGitWorktreePath } from "@t3tools/shared/devHome";
 import { makeDrainableWorker } from "@t3tools/shared/DrainableWorker";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -1221,8 +1221,11 @@ const make = Effect.gen(function* () {
     const roots: Array<string> = [];
     // A git worktree's dev home is seeded from real data, so its threads and any
     // copied settings can point at the developer's real worktrees.
+    // Match both names: with `.t3` and `.m3` both present only one is "the" worktree home.
+    const worktreePath = yield* resolveGitWorktreePath(config.baseDir);
     const isWorktreeDevHome =
-      (yield* resolveWorktreeT3Home(config.baseDir)) === path.resolve(config.baseDir);
+      worktreePath !== undefined &&
+      [".m3", ".t3"].some((name) => path.join(worktreePath, name) === path.resolve(config.baseDir));
     for (const directory of isWorktreeDevHome
       ? [config.worktreesDir]
       : managedWorktreesDirectories(

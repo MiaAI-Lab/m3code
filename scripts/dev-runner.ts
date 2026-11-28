@@ -73,17 +73,13 @@ export const DEFAULT_T3_HOME = Effect.gen(function* () {
   const m3Dir = path.join(home, ".m3");
   const legacyT3Dir = path.join(home, ".t3");
   const maybeFs = yield* Effect.serviceOption(FileSystem.FileSystem);
-  if (Option.isSome(maybeFs)) {
-    const fs = maybeFs.value;
-    const hasM3 = yield* fs.exists(m3Dir).pipe(Effect.orElseSucceed(() => false));
-    if (!hasM3) {
-      const hasLegacyT3 = yield* fs.exists(legacyT3Dir).pipe(Effect.orElseSucceed(() => false));
-      if (hasLegacyT3) {
-        return legacyT3Dir;
-      }
-    }
-  }
-  return m3Dir;
+  if (Option.isNone(maybeFs)) return m3Dir;
+  // Same rule as the server's resolveDefaultHomeBaseDir: an `.m3` without state does not win.
+  const exists = (target: string) =>
+    maybeFs.value.exists(target).pipe(Effect.orElseSucceed(() => false));
+  const m3HasState =
+    (yield* exists(path.join(m3Dir, "userdata"))) || (yield* exists(path.join(m3Dir, "dev")));
+  return !m3HasState && (yield* exists(legacyT3Dir)) ? legacyT3Dir : m3Dir;
 });
 
 const MODE_ARGS = {
@@ -938,13 +934,13 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
         }
         if (input.built) {
           built = true;
-          env.M3CODE_BUILT_DEV = "1";
-        } else if ((env.M3CODE_BUNDLED_DEV ?? env.T3CODE_BUNDLED_DEV) === undefined) {
+          env.T3CODE_BUILT_DEV = "1";
+        } else if (env.T3CODE_BUNDLED_DEV === undefined) {
           // A shared origin serves a remote browser, where unbundled dev's
           // per-module requests each pay a tailnet round trip — a cold module
           // graph takes minutes to first paint. Bundled dev collapses that to a
           // few chunk requests.
-          env.M3CODE_BUNDLED_DEV = "1";
+          env.T3CODE_BUNDLED_DEV = "1";
         }
         yield* Effect.logInfo(`[dev-runner] shared on tailnet: ${shared.url}`);
       } else if (input.built) {

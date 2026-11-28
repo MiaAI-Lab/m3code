@@ -119,10 +119,7 @@ const envWithLegacy = <A>(
     Config.map(([next, prev]) => Option.orElse(next, () => prev)),
   );
 
-export const envHomeConfig = envWithLegacy(
-  Config.String("M3CODE_HOME"),
-  Config.String("T3CODE_HOME"),
-);
+const envHomeConfig = envWithLegacy(Config.String("M3CODE_HOME"), Config.String("T3CODE_HOME"));
 
 const EnvServerConfig = Config.all({
   logLevel: envWithLegacy(
@@ -205,7 +202,7 @@ const DevAuthTokenConfig = envWithLegacy(
       onNone: () => Effect.succeed(Option.none<Redacted.Redacted<string>>()),
       onSome: (token) =>
         Redacted.value(token).length === 0 || Redacted.value(token).length >= 32
-          ? Effect.succeed(Option.some(token))
+          ? Effect.succeedSome(token)
           : Effect.fail(
               new Config.ConfigError(
                 new Schema.SchemaError(

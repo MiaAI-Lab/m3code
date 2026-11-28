@@ -259,25 +259,21 @@ export const expandHomePath = Effect.fn(function* (input: string) {
 });
 
 /**
- * Resolves `<home>/.m3` by default, falling back to `<home>/.t3` when `.m3` does not exist yet
- * and `.t3` already exists so existing state and paired devices remain intact.
+ * Resolves `<home>/.m3` by default, but keeps legacy `<home>/.t3` while `.m3` holds no server
+ * state: something else (a plugin folder, a stray mkdir) creating `.m3` must not switch an
+ * existing install to an empty home and hide its threads and pairings.
  */
 export const resolveDefaultHomeBaseDir = Effect.fn(function* (home: string) {
   const { join } = yield* Path.Path;
   const m3Dir = join(home, ".m3");
   const legacyT3Dir = join(home, ".t3");
   const maybeFs = yield* Effect.serviceOption(FileSystem.FileSystem);
-  if (Option.isSome(maybeFs)) {
-    const fs = maybeFs.value;
-    const hasM3 = yield* fs.exists(m3Dir).pipe(Effect.orElseSucceed(() => false));
-    if (!hasM3) {
-      const hasLegacyT3 = yield* fs.exists(legacyT3Dir).pipe(Effect.orElseSucceed(() => false));
-      if (hasLegacyT3) {
-        return legacyT3Dir;
-      }
-    }
-  }
-  return m3Dir;
+  if (Option.isNone(maybeFs)) return m3Dir;
+  const exists = (target: string) =>
+    maybeFs.value.exists(target).pipe(Effect.orElseSucceed(() => false));
+  const m3HasState =
+    (yield* exists(join(m3Dir, "userdata"))) || (yield* exists(join(m3Dir, "dev")));
+  return !m3HasState && (yield* exists(legacyT3Dir)) ? legacyT3Dir : m3Dir;
 });
 
 export const resolveBaseDir = Effect.fn(function* (raw: string | undefined) {

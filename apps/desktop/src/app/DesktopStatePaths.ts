@@ -11,8 +11,8 @@ function normalizeConfiguredBaseDir(t3Home: Option.Option<string>): Option.Optio
 }
 
 /**
- * Resolves the desktop base dir: explicit `M3CODE_HOME`/`T3CODE_HOME`, else `~/.m3`,
- * falling back to legacy `~/.t3` when `~/.m3` does not exist yet and `~/.t3` exists.
+ * Resolves the desktop base dir: explicit `M3CODE_HOME`/`T3CODE_HOME`, else `~/.m3`, keeping
+ * legacy `~/.t3` while `~/.m3` holds no state. Must match the server's `resolveDefaultHomeBaseDir`.
  */
 export function resolveDesktopBaseDir(input: {
   readonly homeDirectory: string;
@@ -23,7 +23,12 @@ export function resolveDesktopBaseDir(input: {
   return Option.getOrElse(normalizeConfiguredBaseDir(input.t3Home), () => {
     const m3Dir = input.joinPath(input.homeDirectory, ".m3");
     const legacyT3Dir = input.joinPath(input.homeDirectory, ".t3");
-    if (input.pathExists && !input.pathExists(m3Dir) && input.pathExists(legacyT3Dir)) {
+    const pathExists = input.pathExists;
+    const m3HasState =
+      pathExists === undefined ||
+      pathExists(input.joinPath(m3Dir, "userdata")) ||
+      pathExists(input.joinPath(m3Dir, "dev"));
+    if (!m3HasState && pathExists(legacyT3Dir)) {
       return legacyT3Dir;
     }
     return m3Dir;

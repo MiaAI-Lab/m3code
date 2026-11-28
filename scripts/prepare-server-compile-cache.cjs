@@ -49,7 +49,9 @@ module.exports = async ({ appOutDir, electronPlatformName, arch, packager }) => 
   );
   const env = { ...process.env, ELECTRON_RUN_AS_NODE: "1" };
   for (const name of Object.keys(env)) {
-    if (name.startsWith("NODE_") || name.startsWith("T3CODE_")) delete env[name];
+    if (name.startsWith("NODE_") || name.startsWith("T3CODE_") || name.startsWith("M3CODE_")) {
+      delete env[name];
+    }
   }
   const state = fs.mkdtempSync(path.join(os.tmpdir(), "t3-release-cache-"));
   env.T3CODE_HOME = state;

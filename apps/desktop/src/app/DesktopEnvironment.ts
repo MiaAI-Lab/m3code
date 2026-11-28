@@ -156,10 +156,10 @@ const make = Effect.fn("desktop.environment.make")(function* (
   const existingPaths = new Set<string>();
   if (Option.isNone(config.t3Home) && Option.isSome(maybeFileSystem)) {
     const fs = maybeFileSystem.value;
-    if (yield* fs.exists(m3Dir).pipe(Effect.orElseSucceed(() => false))) {
-      existingPaths.add(m3Dir);
-    } else if (yield* fs.exists(legacyT3Dir).pipe(Effect.orElseSucceed(() => false))) {
-      existingPaths.add(legacyT3Dir);
+    for (const candidate of [path.join(m3Dir, "userdata"), path.join(m3Dir, "dev"), legacyT3Dir]) {
+      if (yield* fs.exists(candidate).pipe(Effect.orElseSucceed(() => false))) {
+        existingPaths.add(candidate);
+      }
     }
   }
   const baseDir = resolveDesktopBaseDir({
