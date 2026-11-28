@@ -2,7 +2,7 @@
 
 M3 Code shows a Welcome page when you open a new installation. Existing
 workspaces skip it. It shows what M3 Code found on the computer you are using,
-on one page: your agents, projects from your Claude Code, Codex, and Pi history,
+on one page: your agents, projects from your Claude Code, Codex, OpenCode, and Pi history,
 and the phone app. Only an agent is needed to start chatting.
 
 To see the page again, go to **Settings → About → Welcome page** and select
@@ -64,7 +64,7 @@ app with a code from **Settings → Sharing & access**.
 
 ## Projects
 
-M3 Code finds directories that Claude Code, Codex or Pi has used. Git repositories
+M3 Code finds directories that Claude Code, Codex, OpenCode or Pi has used. Git repositories
 are listed first, newest activity on top. When the remote is on GitHub, the
 group shows the repository as `owner/name`. Clones with the same remote share
 one group. Directories that are not git repositories sit under "Other folders".
@@ -82,13 +82,23 @@ anything under `Downloads` are not offered.
 A large or malformed history can reach the scan limit. M3 Code keeps the
 projects it found and warns when projects or conversations may be missing.
 
-Imported projects include Claude, Codex and Pi conversations active within the last
+Imported projects include Claude, Codex, OpenCode and Pi conversations active within the last
 30 days. You can continue those conversations in M3 Code. Pi is off by default:
 open **Add more agents** and select **Turn on** next to Pi, and the page looks for
 its sessions too. Pi sessions
 are read from each enabled Pi provider's session directory, which follows
 `PI_CODING_AGENT_SESSION_DIR` and `PI_CODING_AGENT_DIR` in its environment. A
-Pi conversation imports its active branch, the one Pi reopens.
+Pi conversation imports its active branch, the one Pi reopens. OpenCode
+conversations are read from the database of each enabled OpenCode provider.
+M3 Code asks the configured OpenCode executable for its database with
+`debug paths db`, using that provider's environment. This selects the same
+file the provider uses, including a custom `OPENCODE_DB` or channel build.
+The lookup can create OpenCode's `log` and `repos` directories and write `opencode.log`.
+If the command cannot report a local file, the provider's history is skipped.
+Only conversations that OpenCode 2 stored are read. An OpenCode
+provider set to use an external server (**Server URL**) is not searched,
+because its conversations live on that server. A session archived in OpenCode
+after the page listed it is left out.
 
 Conversation import is best effort. M3 Code keeps the first user prompt and the
 newest remaining visible user and assistant messages, with 200 messages total.

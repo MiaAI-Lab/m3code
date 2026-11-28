@@ -101,6 +101,10 @@ function candidate(
 }
 
 const PI_MODEL_SELECTION = { instanceId: ProviderInstanceId.make("pi"), model: "default" };
+const OPENCODE_MODEL_SELECTION = {
+  instanceId: ProviderInstanceId.make("opencode"),
+  model: "zai-coding-plan/glm-5.4",
+};
 
 // Pi threads are owned by their session file path, not the session UUID.
 const nativeId = ({ source }: ReturnType<typeof candidate>) =>
@@ -453,6 +457,32 @@ it.effect("rechecks ownership after the import reaches the commit transaction", 
       (yield* projections.getThreadRecords(ownerId, ["providerThreads"])).providerThreads[0]
         ?.appThreadId,
     ).toBe(ownerId);
+  }).pipe(Effect.scoped, Effect.provide(persistence)),
+);
+
+// An imported OpenCode thread continues the OpenCode session it was read from.
+it.effect("binds an imported OpenCode thread to its OpenCode session", () =>
+  Effect.gen(function* () {
+    const projections = yield* ProjectionStore.ProjectionStoreV2;
+    const runtimes = yield* ProviderSessionRuntime.ProviderSessionRuntimeRepository;
+    const source = candidate(OPENCODE_MODEL_SELECTION, "ses_opencode", "opencode");
+    const threadId = importId(source);
+    const importer = yield* makeImporter([source]);
+    expect(yield* importer.run).toEqual({ importedCount: 1, skippedCount: 0 });
+    const records = yield* projections.getThreadRecords(threadId, ["providerThreads"]);
+    expect(records.thread).toMatchObject({
+      providerInstanceId: "opencode",
+      modelSelection: { instanceId: "opencode", model: "zai-coding-plan/glm-5.4" },
+    });
+    expect(records.providerThreads[0]).toMatchObject({
+      driver: "opencode",
+      nativeThreadRef: { driver: "opencode", nativeId: "ses_opencode", strength: "strong" },
+    });
+    expect(Option.getOrThrow(yield* runtimes.getByThreadId({ threadId }))).toMatchObject({
+      providerName: "opencode",
+      adapterKey: "opencode",
+      resumeCursor: { threadId: "ses_opencode" },
+    });
   }).pipe(Effect.scoped, Effect.provide(persistence)),
 );
 
@@ -1022,6 +1052,12 @@ it.effect("repeated imports reach linked-worktree sessions behind the scan budge
                 // Keeps the default Pi instance off the developer's real ~/.pi.
                 [ProviderInstanceId.make("pi")]: {
                   driver: ProviderDriverKind.make("pi"),
+                  enabled: false,
+                  config: {},
+                },
+                // Keeps the default OpenCode instance off the developer's real OpenCode history.
+                [ProviderInstanceId.make("opencode")]: {
+                  driver: ProviderDriverKind.make("opencode"),
                   enabled: false,
                   config: {},
                 },
