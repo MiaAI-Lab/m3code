@@ -1,0 +1,15 @@
+{
+  "id": "ci-runners",
+  "name": "CI Runners",
+  "version": "1.0.0",
+  "description": "Direct API layer for self-hosted CI runners (custom HTTP, GitHub Actions, GitLab Runner, Forgejo/Gitea) plus Docker, systemd, and SSH runner deployment.",
+  "author": "M3 Code",
+  "runtime": {
+    "type": "sidecar",
+    "command": "node",
+    "args": ["server.mjs"],
+    "healthPath": "/api/health"
+  },
+  "slots": ["sidebar-tab", "right-panel", "thread-toolbar"],
+  "subscriptions": ["thread:updated", "workspace:changed"]
+}
