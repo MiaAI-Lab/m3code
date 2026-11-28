@@ -3279,10 +3279,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "på datorn som öppnade den här sidan"
-      ],
+      "c": [" ", "på datorn som öppnade den här sidan"],
       "i": 2,
       "t": "span"
     }
@@ -3294,10 +3291,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "· den som kör den får den här åtkomsten"
-      ],
+      "c": [" ", "· den som kör den får den här åtkomsten"],
       "i": 2,
       "t": "span"
     }

@@ -3280,10 +3280,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "auf dem Computer, der diese Seite geöffnet hat"
-      ],
+      "c": [" ", "auf dem Computer, der diese Seite geöffnet hat"],
       "i": 2,
       "t": "span"
     }
@@ -3295,10 +3292,7 @@
       "v": "v"
     },
     {
-      "c": [
-        " ",
-        "· wer es ausführt, erhält diesen Zugriff"
-      ],
+      "c": [" ", "· wer es ausführt, erhält diesen Zugriff"],
       "i": 2,
       "t": "span"
     }
