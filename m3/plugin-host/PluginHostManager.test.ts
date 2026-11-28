@@ -82,7 +82,7 @@ describe("m3/plugin-host", () => {
 
   it("discovers static & sidecar plugins in ~/.m3/plugins, spawns sidecar on dynamic port, and blocks path traversal", async () => {
     const tmpDir = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "m3-plugin-host-test-"));
-    const manager = new PluginHostManager({ m3HomeDir: tmpDir });
+    const manager = new PluginHostManager({ m3HomeDir: tmpDir, builtinPluginsDirs: [] });
     try {
       // 1. Static HTML/JS plugin
       const staticDir = NodePath.join(tmpDir, "plugins", "dashboard");

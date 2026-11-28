@@ -136,8 +136,12 @@ export async function handleM3PluginHttpRequest(
     const body = await readJsonBody(request);
     const pluginId = typeof body.pluginId === "string" ? body.pluginId.trim() : "";
     if (!pluginId) return errorResponse('Missing required field "pluginId".', 400);
-    const removed = await manager.uninstall(pluginId);
-    return jsonResponse({ ok: true, removed, pluginId });
+    try {
+      const removed = await manager.uninstall(pluginId);
+      return jsonResponse({ ok: true, removed, pluginId });
+    } catch (err) {
+      return errorResponse(err instanceof Error ? err.message : String(err), 400);
+    }
   }
 
   if (pathname === "/api/m3-plugins/toggle" && method === "POST") {

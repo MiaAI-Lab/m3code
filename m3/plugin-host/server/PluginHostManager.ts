@@ -4,6 +4,7 @@ import * as NodeFSP from "node:fs/promises";
 import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
+import * as NodeURL from "node:url";
 
 import { createBridgeEvent, type M3BridgeEventMessage } from "../bridgeProtocol.ts";
 import {
@@ -34,6 +35,11 @@ interface RunningSidecar {
 export interface PluginHostOptions {
   /** Override base M3 home directory (defaults to M3CODE_HOME or ~/.m3). */
   readonly m3HomeDir?: string;
+  /**
+   * Optional directories containing bundled native plugins (defaults to `m3/plugins/`).
+   * Pass `[]` to disable built-in plugin discovery in isolated tests.
+   */
+  readonly builtinPluginsDirs?: ReadonlyArray<string>;
 }
 
 const EMPTY_STATE: PersistedPluginsState = { plugins: {} };
@@ -128,9 +134,15 @@ function runGitClone(url: string, targetDir: string): Promise<void> {
   });
 }
 
+const DEFAULT_BUILTIN_PLUGINS_DIR = NodePath.resolve(
+  NodePath.dirname(NodeURL.fileURLToPath(import.meta.url)),
+  "../../plugins",
+);
+
 export class PluginHostManager {
   readonly m3HomeDir: string;
   readonly pluginsDir: string;
+  readonly builtinPluginsDirs: ReadonlyArray<string>;
   readonly statePath: string;
 
   private readonly sidecars = new Map<string, RunningSidecar>();
@@ -142,6 +154,10 @@ export class PluginHostManager {
       ? NodePath.resolve(options.m3HomeDir)
       : resolveDefaultM3Home();
     this.pluginsDir = NodePath.join(this.m3HomeDir, "plugins");
+    this.builtinPluginsDirs =
+      options.builtinPluginsDirs !== undefined
+        ? options.builtinPluginsDirs.map((dir) => NodePath.resolve(dir))
+        : [DEFAULT_BUILTIN_PLUGINS_DIR];
     this.statePath = NodePath.join(this.m3HomeDir, "userdata", "plugins-state.json");
   }
 
@@ -193,7 +209,12 @@ export class PluginHostManager {
     }
 
     const port = await allocateLoopbackPort();
-    const child = NodeChildProcess.spawn(manifest.runtime.command, [...manifest.runtime.args], {
+    const resolvedCommand =
+      manifest.runtime.command === "node" && !("electron" in process.versions)
+        ? process.execPath
+        : manifest.runtime.command;
+    const dataDir = NodePath.join(this.m3HomeDir, "userdata", "plugins", manifest.id);
+    const child = NodeChildProcess.spawn(resolvedCommand, [...manifest.runtime.args], {
       cwd: rootDir,
       env: {
         ...process.env,
@@ -202,6 +223,8 @@ export class PluginHostManager {
         M3_PLUGIN_PORT: String(port),
         M3_PLUGIN_ID: manifest.id,
         M3_PLUGIN_DIR: rootDir,
+        M3_HOME_DIR: this.m3HomeDir,
+        M3_PLUGIN_DATA_DIR: dataDir,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -268,22 +291,22 @@ export class PluginHostManager {
     await Promise.all(ids.map((id) => this.stopSidecar(id)));
   }
 
-  async list(): Promise<{
-    readonly pluginsDir: string;
-    readonly plugins: ReadonlyArray<M3PluginRecord>;
-  }> {
-    const state = await this.readState();
+  private async scanPluginDirectory(
+    dir: string,
+    builtin: boolean,
+    state: PersistedPluginsState,
+  ): Promise<ReadonlyArray<M3PluginRecord>> {
     let entries: string[] = [];
     try {
-      entries = await NodeFSP.readdir(this.pluginsDir);
+      entries = await NodeFSP.readdir(dir);
     } catch {
-      return { pluginsDir: this.pluginsDir, plugins: [] };
+      return [];
     }
 
     const visible = entries.filter((entry) => !entry.startsWith("."));
     const records = await Promise.all(
       visible.map(async (entry): Promise<M3PluginRecord | undefined> => {
-        const rootDir = NodePath.join(this.pluginsDir, entry);
+        const rootDir = NodePath.join(dir, entry);
         let isSymlink = false;
         try {
           const lstat = await NodeFSP.lstat(rootDir);
@@ -317,6 +340,7 @@ export class PluginHostManager {
             enabled: false,
             status: "error",
             isSymlink,
+            ...(builtin ? { builtin: true } : {}),
             entryUrl: null,
             sidecarPort: null,
             errorMessage: validated.error,
@@ -335,6 +359,7 @@ export class PluginHostManager {
             enabled: false,
             status: "disabled",
             isSymlink,
+            ...(builtin ? { builtin: true } : {}),
             entryUrl: null,
             sidecarPort: null,
             ...(saved?.installedAt ? { installedAt: saved.installedAt } : {}),
@@ -351,6 +376,7 @@ export class PluginHostManager {
             enabled: true,
             status: errorMessage ? "error" : running ? "active" : "starting",
             isSymlink,
+            ...(builtin ? { builtin: true } : {}),
             entryUrl: running
               ? `/api/m3-plugins/sidecar/${encodeURIComponent(manifest.id)}/?m3_plugin_id=${encodeURIComponent(manifest.id)}`
               : null,
@@ -368,6 +394,7 @@ export class PluginHostManager {
           enabled: true,
           status: "active",
           isSymlink,
+          ...(builtin ? { builtin: true } : {}),
           entryUrl: `/api/m3-plugins/static/${encodeURIComponent(manifest.id)}/${cleanEntry}?m3_plugin_id=${encodeURIComponent(manifest.id)}`,
           sidecarPort: null,
           ...(saved?.installedAt ? { installedAt: saved.installedAt } : {}),
@@ -376,9 +403,31 @@ export class PluginHostManager {
       }),
     );
 
-    const plugins = records
-      .filter((record): record is M3PluginRecord => record !== undefined)
-      .sort((a, b) => a.manifest.name.localeCompare(b.manifest.name));
+    return records.filter((record): record is M3PluginRecord => record !== undefined);
+  }
+
+  async list(): Promise<{
+    readonly pluginsDir: string;
+    readonly plugins: ReadonlyArray<M3PluginRecord>;
+  }> {
+    const state = await this.readState();
+    const byId = new Map<string, M3PluginRecord>();
+
+    for (const builtinDir of this.builtinPluginsDirs) {
+      const builtinRecords = await this.scanPluginDirectory(builtinDir, true, state);
+      for (const record of builtinRecords) {
+        byId.set(record.manifest.id, record);
+      }
+    }
+
+    const userRecords = await this.scanPluginDirectory(this.pluginsDir, false, state);
+    for (const record of userRecords) {
+      byId.set(record.manifest.id, record);
+    }
+
+    const plugins = [...byId.values()].sort((a, b) =>
+      a.manifest.name.localeCompare(b.manifest.name),
+    );
 
     return { pluginsDir: this.pluginsDir, plugins };
   }
@@ -448,6 +497,9 @@ export class PluginHostManager {
     const listed = await this.list();
     const target = listed.plugins.find((p) => p.manifest.id === pluginId);
     if (!target) return false;
+    if (target.builtin) {
+      throw new Error(`Built-in plugin "${pluginId}" cannot be uninstalled; disable it instead.`);
+    }
     await this.stopSidecar(pluginId);
     await NodeFSP.rm(target.rootDir, { recursive: true, force: true });
     const state = await this.readState();

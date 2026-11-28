@@ -20,6 +20,7 @@ interface M3PluginRecord {
   readonly manifest: M3PluginManifest;
   readonly enabled: boolean;
   readonly status: "active" | "disabled" | "starting" | "error";
+  readonly builtin?: boolean;
   readonly entryUrl: string | null;
   readonly sidecarPort: number | null;
   readonly errorMessage?: string;
@@ -736,20 +737,22 @@ export function M3PluginSlotHost() {
                       >
                         {plugin.enabled ? gt("Disable") : gt("Enable")}
                       </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void handleUninstall(plugin.manifest.id)}
-                        style={{
-                          fontSize: 11,
-                          padding: "4px 8px",
-                          borderRadius: 6,
-                          border: "1px solid var(--border, #27272a)",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <T>Remove</T>
-                      </button>
+                      {!plugin.builtin ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleUninstall(plugin.manifest.id)}
+                          style={{
+                            fontSize: 11,
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "1px solid var(--border, #27272a)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <T>Remove</T>
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ))
