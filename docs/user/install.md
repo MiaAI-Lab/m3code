@@ -169,18 +169,21 @@ folder paths, so in the web app use **Add project** instead.
 
 ## Mobile app
 
-Install M3 Code from the
+The M3 Code app for Android is published from this repository's
+[releases](https://github.com/MiaAI-Lab/m3code/releases?q=mobile-m3-). The official
+T3 Code app from the
 [App Store](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824) or
-[Google Play](https://play.google.com/store/apps/details?id=com.t3tools.t3code).
+[Google Play](https://play.google.com/store/apps/details?id=com.t3tools.t3code) also
+connects to this server unchanged.
 The phone connects to a server on another machine. Follow
-[remote access](./remote-access.md) to link it through T3 Connect or a pairing URL.
+[remote access](./remote-access.md) to link it through M3 Connect or a pairing URL.
 
 Store links and QR codes are also available in **Settings → About → Mobile app**
-on web and desktop. The store apps work with both stable and Nightly servers. Test builds are optional:
+on web and desktop. Both apps work with stable and Nightly servers. Test builds are optional:
 
-- **iPhone and iPad:** TestFlight is invite-only.
-- **Android:** download an APK from the
-  [Android beta releases](https://github.com/pingdotgg/t3code/releases?q=android-beta-).
+- **iPhone and iPad:** the M3 Code app is built from this repository; TestFlight is invite-only.
+- **Android:** download the APK from the
+  [M3 Code Android releases](https://github.com/MiaAI-Lab/m3code/releases?q=mobile-m3-).
 
 If the app crashes during launch, open Settings → Diagnostics on the next launch
 that succeeds. It lists startup crashes from the last 7 days with the error and

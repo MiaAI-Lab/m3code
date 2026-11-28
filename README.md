@@ -162,8 +162,11 @@ Linked providers send their requests through M3 Code, which:
 - **Settled stays out of the way**: it collapses to one line, opens to the five most recent
   threads, and shows **Un-settle** when you hover a row.
 
-### Works with the T3 Code mobile app
+### Mobile apps
 
+- The M3 Code app for Android is published from this repository's
+  [releases](https://github.com/MiaAI-Lab/m3code/releases?q=mobile-m3-): M3 branding, the Tech Moca
+  theme and its own package id (`com.m3tools.m3code`).
 - The official T3 Code app for iPhone connects to this fork's server and keeps working: the fork
   only adds to the protocol, it never renames or removes anything.
 - Settings and thread states keep T3 Code's own pages and names (**Settled**, **Environments**,
