@@ -923,7 +923,7 @@ export const IRIS_THEME: ThemeDefinition = {
  * D:\ONI_Harness\docs\design\tech-moca (tokens.css); accents stay neutral and the only warmth is
  * the sand focus.
  */
-export const TECH_MOCA_THEME: ThemeDefinition = {
+const TECH_MOCA_THEME: ThemeDefinition = {
   id: "tech-moca",
   label: "M3 Code",
   appearance: "dark",
